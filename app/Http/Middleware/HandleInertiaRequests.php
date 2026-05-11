@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -37,6 +38,9 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
+            'appName' => config('app.name'),
+            'appDesc' => config('app.description'),
+            'canRegister' => Route::has('register'),
             'permissions' => fn () => $request->user()
                 ? $request->user()->getAllPermissions()->pluck('name')->values()->all()
                 : [],
