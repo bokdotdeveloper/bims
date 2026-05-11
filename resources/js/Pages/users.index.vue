@@ -61,7 +61,7 @@ const handleTableChange = (pag: { current: number; pageSize: number }) => {
 };
 
 const columns = [
-    { title: 'Name', key: 'name', width: 200 },
+    { title: 'Name', dataIndex: 'name', key: 'name', width: 200 },
     { title: 'Email', dataIndex: 'email', key: 'email', width: 260 },
     { title: 'Roles', key: 'roles', width: 280 },
     { title: '', key: 'action', align: 'center' as const, width: 110 },
@@ -152,7 +152,10 @@ const handleDelete = (record: UserRow) => {
                         row-key="id"
                     >
                         <template #bodyCell="{ column, record }">
-                            <template v-if="column.key === 'roles'">
+                            <template v-if="column.dataIndex === 'name' || column.dataIndex === 'email'">
+                                {{ record[column.dataIndex as keyof UserRow] }}
+                            </template>
+                            <template v-else-if="column.key === 'roles'">
                                 <a-space wrap>
                                     <a-tag v-for="r in (record.roles ?? [])" :key="r.id" color="blue">{{ r.name }}</a-tag>
                                     <span v-if="!(record.roles?.length)" class="text-gray-400 text-xs">No roles</span>

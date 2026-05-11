@@ -7,8 +7,14 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import Antd from 'ant-design-vue';
 import VueApexCharts from 'vue3-apexcharts';
+import { initializeTheme } from './composables/useAppearance';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+// Apply saved appearance before any page setup (fixes charts / first paint on dark mode).
+if (typeof window !== 'undefined') {
+    initializeTheme();
+}
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
