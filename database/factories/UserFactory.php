@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Role;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -10,7 +11,7 @@ use Illuminate\Support\Str;
 use Laravel\Jetstream\Features;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+ * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
@@ -18,6 +19,19 @@ class UserFactory extends Factory
      * The current password being used by the factory.
      */
     protected static ?string $password;
+
+    /**
+     * @return $this
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (User $user): void {
+            $role = Role::query()->where('name', 'Staff')->where('guard_name', 'web')->first();
+            if ($role && $user->roles()->doesntExist()) {
+                $user->assignRole($role);
+            }
+        });
+    }
 
     /**
      * Define the model's default state.

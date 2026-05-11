@@ -9,6 +9,21 @@ import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import NotificationBell from '@/Components/NotificationBell.vue';
 import { useAppearance } from '../composables/useAppearance';
+import { useAuthorization } from '@/composables/useAuthorization';
+import {
+    AuditOutlined,
+    ContactsOutlined,
+    DashboardOutlined,
+    DollarOutlined,
+    KeyOutlined,
+    LogoutOutlined,
+    ProfileOutlined,
+    ProjectOutlined,
+    ReadOutlined,
+    SafetyOutlined,
+    TeamOutlined,
+    UserOutlined,
+} from '@ant-design/icons-vue';
 import { ConfigProvider } from 'ant-design-vue';
 import { theme } from 'ant-design-vue';
 import { computed, onBeforeMount, onMounted } from 'vue';
@@ -16,6 +31,8 @@ import { computed, onBeforeMount, onMounted } from 'vue';
 defineProps({
     title: String,
 });
+
+const { can, canAny } = useAuthorization();
 
 const showingNavigationDropdown = ref(false);
 
@@ -83,32 +100,91 @@ const themeAlgorithm = computed(() => {
 
                                 <!-- Navigation Links -->
                                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                    <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
-                                        Dashboard
+                                    <NavLink v-if="can('dashboard.access')" :href="route('dashboard')" :active="route().current('dashboard')">
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <DashboardOutlined class="text-[15px]" />
+                                            Dashboard
+                                        </span>
                                     </NavLink>
-                                    <NavLink :href="route('beneficiaries.index')"
-                                             :active="route().current('beneficiaries.*')">
-                                        Beneficiaries
+                                    <NavLink
+                                        v-if="canAny(['beneficiaries.view', 'beneficiaries.manage'])"
+                                        :href="route('beneficiaries.index')"
+                                        :active="route().current('beneficiaries.*')"
+                                    >
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <UserOutlined class="text-[15px]" />
+                                            Beneficiaries
+                                        </span>
                                     </NavLink>
-                                    <NavLink :href="route('projects.index')"
-                                             :active="route().current('projects.*')">
-                                        Projects
+                                    <NavLink
+                                        v-if="canAny(['projects.view', 'projects.manage'])"
+                                        :href="route('projects.index')"
+                                        :active="route().current('projects.*')"
+                                    >
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <ProjectOutlined class="text-[15px]" />
+                                            Projects
+                                        </span>
                                     </NavLink>
-                                    <NavLink :href="route('trainings.index')"
-                                             :active="route().current('trainings.*')">
-                                        Trainings
+                                    <NavLink
+                                        v-if="canAny(['trainings.view', 'trainings.manage'])"
+                                        :href="route('trainings.index')"
+                                        :active="route().current('trainings.*')"
+                                    >
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <ReadOutlined class="text-[15px]" />
+                                            Trainings
+                                        </span>
                                     </NavLink>
-                                    <NavLink :href="route('assistance-records.index')"
-                                             :active="route().current('assistance-records.*')">
-                                        Assistance
+                                    <NavLink
+                                        v-if="canAny(['assistance.view', 'assistance.manage'])"
+                                        :href="route('assistance-records.index')"
+                                        :active="route().current('assistance-records.*')"
+                                    >
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <DollarOutlined class="text-[15px]" />
+                                            Assistance
+                                        </span>
                                     </NavLink>
-                                    <NavLink :href="route('beneficiary-groups.index')"
-                                             :active="route().current('beneficiary-groups.*')">
-                                        Groups
+                                    <NavLink
+                                        v-if="canAny(['groups.view', 'groups.manage'])"
+                                        :href="route('beneficiary-groups.index')"
+                                        :active="route().current('beneficiary-groups.*')"
+                                    >
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <TeamOutlined class="text-[15px]" />
+                                            Groups
+                                        </span>
                                     </NavLink>
-                                    <NavLink :href="route('audit-logs.index')"
-                                             :active="route().current('audit-logs.*')">
-                                        Audit Logs
+                                    <NavLink
+                                        v-if="can('audit_logs.view')"
+                                        :href="route('audit-logs.index')"
+                                        :active="route().current('audit-logs.*')"
+                                    >
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <AuditOutlined class="text-[15px]" />
+                                            Audit Logs
+                                        </span>
+                                    </NavLink>
+                                    <NavLink
+                                        v-if="can('users.manage')"
+                                        :href="route('users.index')"
+                                        :active="route().current('users.*')"
+                                    >
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <ContactsOutlined class="text-[15px]" />
+                                            Users
+                                        </span>
+                                    </NavLink>
+                                    <NavLink
+                                        v-if="can('roles.manage')"
+                                        :href="route('roles.index')"
+                                        :active="route().current('roles.*')"
+                                    >
+                                        <span class="inline-flex items-center gap-1.5">
+                                            <SafetyOutlined class="text-[15px]" />
+                                            Roles
+                                        </span>
                                     </NavLink>
                                 </div>
                             </div>
@@ -224,12 +300,18 @@ const themeAlgorithm = computed(() => {
                                             </div>
 
                                             <DropdownLink :href="route('profile.show')">
-                                                Profile
+                                                <span class="inline-flex items-center gap-2">
+                                                    <ProfileOutlined class="text-base opacity-90" />
+                                                    Profile
+                                                </span>
                                             </DropdownLink>
 
                                             <DropdownLink v-if="$page.props.jetstream.hasApiFeatures"
                                                           :href="route('api-tokens.index')">
-                                                API Tokens
+                                                <span class="inline-flex items-center gap-2">
+                                                    <KeyOutlined class="text-base opacity-90" />
+                                                    API Tokens
+                                                </span>
                                             </DropdownLink>
 
                                             <div class="border-t border-gray-200 dark:border-gray-600"/>
@@ -237,7 +319,10 @@ const themeAlgorithm = computed(() => {
                                             <!-- Authentication -->
                                             <form @submit.prevent="logout">
                                                 <DropdownLink as="button">
-                                                    Log Out
+                                                    <span class="inline-flex items-center gap-2">
+                                                        <LogoutOutlined class="text-base opacity-90" />
+                                                        Log Out
+                                                    </span>
                                                 </DropdownLink>
                                             </form>
                                         </template>
@@ -280,26 +365,91 @@ const themeAlgorithm = computed(() => {
                     <div :class="{'block': showingNavigationDropdown, 'hidden': ! showingNavigationDropdown}"
                          class="sm:hidden">
                         <div class="pt-2 pb-3 space-y-1">
-                            <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')">
-                                Dashboard
+                            <ResponsiveNavLink v-if="can('dashboard.access')" :href="route('dashboard')" :active="route().current('dashboard')">
+                                <span class="inline-flex items-center gap-2">
+                                    <DashboardOutlined class="text-lg opacity-90" />
+                                    Dashboard
+                                </span>
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('beneficiaries.index')" :active="route().current('beneficiaries.*')">
-                                Beneficiaries
+                            <ResponsiveNavLink
+                                v-if="canAny(['beneficiaries.view', 'beneficiaries.manage'])"
+                                :href="route('beneficiaries.index')"
+                                :active="route().current('beneficiaries.*')"
+                            >
+                                <span class="inline-flex items-center gap-2">
+                                    <UserOutlined class="text-lg opacity-90" />
+                                    Beneficiaries
+                                </span>
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('projects.index')" :active="route().current('projects.*')">
-                                Projects
+                            <ResponsiveNavLink
+                                v-if="canAny(['projects.view', 'projects.manage'])"
+                                :href="route('projects.index')"
+                                :active="route().current('projects.*')"
+                            >
+                                <span class="inline-flex items-center gap-2">
+                                    <ProjectOutlined class="text-lg opacity-90" />
+                                    Projects
+                                </span>
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('trainings.index')" :active="route().current('trainings.*')">
-                                Trainings
+                            <ResponsiveNavLink
+                                v-if="canAny(['trainings.view', 'trainings.manage'])"
+                                :href="route('trainings.index')"
+                                :active="route().current('trainings.*')"
+                            >
+                                <span class="inline-flex items-center gap-2">
+                                    <ReadOutlined class="text-lg opacity-90" />
+                                    Trainings
+                                </span>
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('assistance-records.index')" :active="route().current('assistance-records.*')">
-                                Assistance Records
+                            <ResponsiveNavLink
+                                v-if="canAny(['assistance.view', 'assistance.manage'])"
+                                :href="route('assistance-records.index')"
+                                :active="route().current('assistance-records.*')"
+                            >
+                                <span class="inline-flex items-center gap-2">
+                                    <DollarOutlined class="text-lg opacity-90" />
+                                    Assistance Records
+                                </span>
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('beneficiary-groups.index')" :active="route().current('beneficiary-groups.*')">
-                                Beneficiary Groups
+                            <ResponsiveNavLink
+                                v-if="canAny(['groups.view', 'groups.manage'])"
+                                :href="route('beneficiary-groups.index')"
+                                :active="route().current('beneficiary-groups.*')"
+                            >
+                                <span class="inline-flex items-center gap-2">
+                                    <TeamOutlined class="text-lg opacity-90" />
+                                    Beneficiary Groups
+                                </span>
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('audit-logs.index')" :active="route().current('audit-logs.*')">
-                                Audit Logs
+                            <ResponsiveNavLink
+                                v-if="can('audit_logs.view')"
+                                :href="route('audit-logs.index')"
+                                :active="route().current('audit-logs.*')"
+                            >
+                                <span class="inline-flex items-center gap-2">
+                                    <AuditOutlined class="text-lg opacity-90" />
+                                    Audit Logs
+                                </span>
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                v-if="can('users.manage')"
+                                :href="route('users.index')"
+                                :active="route().current('users.*')"
+                            >
+                                <span class="inline-flex items-center gap-2">
+                                    <ContactsOutlined class="text-lg opacity-90" />
+                                    Users
+                                </span>
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink
+                                v-if="can('roles.manage')"
+                                :href="route('roles.index')"
+                                :active="route().current('roles.*')"
+                            >
+                                <span class="inline-flex items-center gap-2">
+                                    <SafetyOutlined class="text-lg opacity-90" />
+                                    Roles
+                                </span>
                             </ResponsiveNavLink>
                         </div>
 
@@ -325,19 +475,28 @@ const themeAlgorithm = computed(() => {
                             <div class="mt-3 space-y-1">
                                 <ResponsiveNavLink :href="route('profile.show')"
                                                    :active="route().current('profile.show')">
-                                    Profile
+                                    <span class="inline-flex items-center gap-2">
+                                        <ProfileOutlined class="text-lg opacity-90" />
+                                        Profile
+                                    </span>
                                 </ResponsiveNavLink>
 
                                 <ResponsiveNavLink v-if="$page.props.jetstream.hasApiFeatures"
                                                    :href="route('api-tokens.index')"
                                                    :active="route().current('api-tokens.index')">
-                                    API Tokens
+                                    <span class="inline-flex items-center gap-2">
+                                        <KeyOutlined class="text-lg opacity-90" />
+                                        API Tokens
+                                    </span>
                                 </ResponsiveNavLink>
 
                                 <!-- Authentication -->
                                 <form method="POST" @submit.prevent="logout">
                                     <ResponsiveNavLink as="button">
-                                        Log Out
+                                        <span class="inline-flex items-center gap-2">
+                                            <LogoutOutlined class="text-lg opacity-90" />
+                                            Log Out
+                                        </span>
                                     </ResponsiveNavLink>
                                 </form>
 

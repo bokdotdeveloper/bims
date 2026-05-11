@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Beneficiary;
 use App\Models\BeneficiaryGroup;
+use App\Support\AuditLogger;
 use Illuminate\Http\Request;
 
 class BeneficiaryGroupController extends Controller
 {
     public function index(Request $request)
     {
-        $query = BeneficiaryGroup::query()->withCount('members');
+        $query = BeneficiaryGroup::query();
 
         if ($request->filled('search')) {
             $q = $request->search;
@@ -21,7 +22,7 @@ class BeneficiaryGroupController extends Controller
         }
 
         return inertia('beneficiary-groups.index', [
-            'groups'  => $query->latest()->paginate($request->get('per_page', 20))->withQueryString(),
+            'groups' => $query->latest()->paginate($request->get('per_page', 20))->withQueryString(),
             'filters' => $request->only(['search']),
         ]);
     }
@@ -29,15 +30,13 @@ class BeneficiaryGroupController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'group_name'     => 'required|string|max:255',
-            'group_type'     => 'nullable|string|max:100',
-            'total_members'  => 'nullable|integer|min:0',
-            'male_members'   => 'nullable|integer|min:0',
-            'female_members' => 'nullable|integer|min:0',
+            'group_name' => 'required|string|max:255',
+            'group_type' => 'nullable|string|max:100',
             'date_organized' => 'nullable|date',
         ]);
 
-        BeneficiaryGroup::create($validated);
+        $group = BeneficiaryGroup::create($validated);
+        $group->refreshMemberCounts();
 
         return back()->with('success', 'Beneficiary group created successfully.');
     }
@@ -47,15 +46,13 @@ class BeneficiaryGroupController extends Controller
         $group = BeneficiaryGroup::findOrFail($id);
 
         $validated = $request->validate([
-            'group_name'     => 'required|string|max:255',
-            'group_type'     => 'nullable|string|max:100',
-            'total_members'  => 'nullable|integer|min:0',
-            'male_members'   => 'nullable|integer|min:0',
-            'female_members' => 'nullable|integer|min:0',
+            'group_name' => 'required|string|max:255',
+            'group_type' => 'nullable|string|max:100',
             'date_organized' => 'nullable|date',
         ]);
 
         $group->update($validated);
+        $group->refreshMemberCounts();
 
         return back()->with('success', 'Beneficiary group updated successfully.');
     }
@@ -77,13 +74,13 @@ class BeneficiaryGroupController extends Controller
             ->orderBy('last_name')
             ->get()
             ->map(fn ($b) => [
-                'id'               => $b->id,
-                'first_name'       => $b->first_name,
-                'last_name'        => $b->last_name,
+                'id' => $b->id,
+                'first_name' => $b->first_name,
+                'last_name' => $b->last_name,
                 'beneficiary_code' => $b->beneficiary_code,
-                'barangay'         => $b->barangay,
-                'sex'              => $b->sex,
-                'date_joined'      => $b->pivot->date_joined,
+                'barangay' => $b->barangay,
+                'sex' => $b->sex,
+                'date_joined' => $b->pivot->date_joined,
             ]);
 
         return response()->json($members);
@@ -96,13 +93,19 @@ class BeneficiaryGroupController extends Controller
 
         $validated = $request->validate([
             'beneficiary_id' => 'required|exists:beneficiaries,id',
-            'date_joined'    => 'nullable|date',
+            'date_joined' => 'nullable|date',
         ]);
 
         $group->members()->syncWithoutDetaching([
             $validated['beneficiary_id'] => [
                 'date_joined' => $validated['date_joined'] ?? null,
             ],
+        ]);
+
+        $group->refreshMemberCounts();
+
+        AuditLogger::recordBeneficiaryMemberAttached($group, $validated['beneficiary_id'], [
+            'date_joined' => $validated['date_joined'] ?? null,
         ]);
 
         return back()->with('success', 'Member added to group.');
@@ -113,6 +116,10 @@ class BeneficiaryGroupController extends Controller
     {
         $group = BeneficiaryGroup::findOrFail($id);
         $group->members()->detach($beneficiaryId);
+
+        $group->refreshMemberCounts();
+
+        AuditLogger::recordBeneficiaryMemberDetached($group, $beneficiaryId);
 
         return back()->with('success', 'Member removed from group.');
     }

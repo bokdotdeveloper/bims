@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Beneficiary;
-use App\Models\Training;
 use App\Models\Project;
+use App\Models\Training;
+use App\Support\AuditLogger;
 use Illuminate\Http\Request;
 
 class TrainingController extends Controller
@@ -27,21 +28,21 @@ class TrainingController extends Controller
 
         return inertia('trainings.index', [
             'trainings' => $query->latest()->paginate($request->get('per_page', 20))->withQueryString(),
-            'projects'  => Project::select('id', 'project_name')->get(),
-            'filters'   => $request->only(['search', 'project_id']),
+            'projects' => Project::select('id', 'project_name')->get(),
+            'filters' => $request->only(['search', 'project_id']),
         ]);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'training_tile'  => 'required|string|max:255',
-            'training_type'  => 'nullable|string|max:100',
-            'facilitator'    => 'nullable|string|max:255',
-            'venue'          => 'nullable|string|max:255',
+            'training_tile' => 'required|string|max:255',
+            'training_type' => 'nullable|string|max:100',
+            'facilitator' => 'nullable|string|max:255',
+            'venue' => 'nullable|string|max:255',
             'date_conducted' => 'required|date',
             'duration_hours' => 'nullable|numeric|min:0',
-            'project_id'     => 'nullable|exists:projects,id',
+            'project_id' => 'nullable|exists:projects,id',
         ]);
 
         Training::create($validated);
@@ -52,6 +53,7 @@ class TrainingController extends Controller
     public function show(string $id)
     {
         $training = Training::with(['project', 'beneficiaries'])->findOrFail($id);
+
         return inertia('trainings.show', ['training' => $training]);
     }
 
@@ -60,13 +62,13 @@ class TrainingController extends Controller
         $training = Training::findOrFail($id);
 
         $validated = $request->validate([
-            'training_tile'  => 'required|string|max:255',
-            'training_type'  => 'nullable|string|max:100',
-            'facilitator'    => 'nullable|string|max:255',
-            'venue'          => 'nullable|string|max:255',
+            'training_tile' => 'required|string|max:255',
+            'training_type' => 'nullable|string|max:100',
+            'facilitator' => 'nullable|string|max:255',
+            'venue' => 'nullable|string|max:255',
             'date_conducted' => 'required|date',
             'duration_hours' => 'nullable|numeric|min:0',
-            'project_id'     => 'nullable|exists:projects,id',
+            'project_id' => 'nullable|exists:projects,id',
         ]);
 
         $training->update($validated);
@@ -91,12 +93,12 @@ class TrainingController extends Controller
             ->orderBy('last_name')
             ->get()
             ->map(fn ($b) => [
-                'id'                => $b->id,
-                'first_name'        => $b->first_name,
-                'last_name'         => $b->last_name,
-                'beneficiary_code'  => $b->beneficiary_code,
-                'barangay'          => $b->barangay,
-                'date_attended'     => $b->pivot->date_attended,
+                'id' => $b->id,
+                'first_name' => $b->first_name,
+                'last_name' => $b->last_name,
+                'beneficiary_code' => $b->beneficiary_code,
+                'barangay' => $b->barangay,
+                'date_attended' => $b->pivot->date_attended,
                 'completion_status' => $b->pivot->completion_status,
             ]);
 
@@ -109,16 +111,21 @@ class TrainingController extends Controller
         $training = Training::findOrFail($id);
 
         $validated = $request->validate([
-            'beneficiary_id'    => 'required|exists:beneficiaries,id',
-            'date_attended'     => 'nullable|date',
+            'beneficiary_id' => 'required|exists:beneficiaries,id',
+            'date_attended' => 'nullable|date',
             'completion_status' => 'required|in:Completed,Incomplete,Dropped',
         ]);
 
         $training->beneficiaries()->syncWithoutDetaching([
             $validated['beneficiary_id'] => [
-                'date_attended'     => $validated['date_attended'] ?? null,
+                'date_attended' => $validated['date_attended'] ?? null,
                 'completion_status' => $validated['completion_status'],
             ],
+        ]);
+
+        AuditLogger::recordBeneficiaryMemberAttached($training, $validated['beneficiary_id'], [
+            'date_attended' => $validated['date_attended'] ?? null,
+            'completion_status' => $validated['completion_status'],
         ]);
 
         return back()->with('success', 'Participant added.');
@@ -129,6 +136,8 @@ class TrainingController extends Controller
     {
         $training = Training::findOrFail($id);
         $training->beneficiaries()->detach($beneficiaryId);
+
+        AuditLogger::recordBeneficiaryMemberDetached($training, $beneficiaryId);
 
         return back()->with('success', 'Participant removed.');
     }

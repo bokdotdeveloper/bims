@@ -23,10 +23,11 @@ use Spatie\Permission\Traits\HasRoles;
 #[Table(key: 'id', keyType: 'string', incrementing: false)]
 class User extends Authenticatable
 {
-    use HasApiTokens, HasUuids, HasRoles, HasProfilePhoto, Notifiable, HasApiTokens;
+    use HasApiTokens, HasProfilePhoto, HasRoles, HasUuids, Notifiable;
 
     /** @use HasFactory<UserFactory> */
     use HasFactory;
+
     use TwoFactorAuthenticatable;
 
     /**

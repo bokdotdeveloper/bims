@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -14,29 +13,31 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        User::firstOrCreate(
+        $admin = User::firstOrCreate(
             ['email' => 'admin@slp-bims.gov.ph'],
             [
-                'name'     => 'SLP Administrator',
+                'name' => 'SLP Administrator',
                 'password' => Hash::make('Admin@1234'),
             ]
         );
+        $admin->syncRoles(['Super Admin']);
 
-        // Staff accounts
-        User::firstOrCreate(
+        $staff1 = User::firstOrCreate(
             ['email' => 'staff1@slp-bims.gov.ph'],
             [
-                'name'     => 'Maria Santos',
+                'name' => 'Maria Santos',
                 'password' => Hash::make('Staff@1234'),
             ]
         );
+        $staff1->syncRoles(['Staff']);
 
-        User::firstOrCreate(
+        $staff2 = User::firstOrCreate(
             ['email' => 'staff2@slp-bims.gov.ph'],
             [
-                'name'     => 'Juan dela Cruz',
+                'name' => 'Juan dela Cruz',
                 'password' => Hash::make('Staff@1234'),
             ]
         );
+        $staff2->syncRoles(['Staff']);
     }
 }

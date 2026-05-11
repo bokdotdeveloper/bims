@@ -11,11 +11,42 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['beneficiary_code', 'beneficiary_type', 'last_name', 'first_name', 'middle_name', 'date_of_birth', 'sex', 'civil_status', 'address', 'barangay', 'municipality', 'province', 'contact_number', 'is_active'])]
+#[Fillable(['beneficiary_code', 'beneficiary_type', 'last_name', 'first_name', 'middle_name', 'date_of_birth', 'sex', 'civil_status', 'address', 'region', 'barangay', 'municipality', 'province', 'contact_number', 'is_active'])]
 #[Table(key: 'id', keyType: 'string', incrementing: false)]
 class Beneficiary extends Model
 {
-    use HasUuids, SoftDeletes, HasFactory;
+    use HasFactory, HasUuids, SoftDeletes;
+
+    public function setBeneficiaryCodeAttribute(?string $value): void
+    {
+        $this->attributes['beneficiary_code'] = $value === null || $value === ''
+            ? $value
+            : strtoupper(trim($value));
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Beneficiary $beneficiary): void {
+            if (blank($beneficiary->beneficiary_code)) {
+                $beneficiary->beneficiary_code = static::generateBeneficiaryCode();
+            }
+        });
+    }
+
+    protected static function generateBeneficiaryCode(): string
+    {
+        $maxNumber = (int) static::withTrashed()
+            ->where('beneficiary_code', 'like', 'BEN-%')
+            ->selectRaw('MAX(CAST(SUBSTRING(beneficiary_code, 5) AS UNSIGNED)) as max_number')
+            ->value('max_number');
+
+        do {
+            $maxNumber++;
+            $candidate = sprintf('BEN-%06d', $maxNumber);
+        } while (static::withTrashed()->where('beneficiary_code', $candidate)->exists());
+
+        return $candidate;
+    }
 
     protected function casts(): array
     {

@@ -24,12 +24,11 @@ class ProjectFactory extends Factory
 
         return [
             'project_name' => $this->faker->randomElement($projects),
-            'project_code' => 'SLP-' . strtoupper($this->faker->unique()->bothify('??###')),
-            'description'  => $this->faker->sentence(12),
+            'project_code' => 'SLP-'.strtoupper($this->faker->unique()->bothify('??###')),
+            'description' => $this->faker->sentence(12),
             'date_started' => $start->format('Y-m-d'),
-            'date_ended'   => $this->faker->optional(0.4)->dateTimeBetween($start, 'now')?->format('Y-m-d'),
-            'fund_source'  => $this->faker->randomElement(['DSWD Central Office', 'LGU', 'DSWD Region VI', 'Other']),
-            'is_active'    => true,
+            'date_ended' => $this->faker->optional(0.4)->dateTimeBetween($start, 'now')?->format('Y-m-d'),
+            'fund_source' => $this->faker->randomElement(['DSWD Central Office', 'LGU', 'DSWD Region VI', 'Other']),
         ];
     }
 }

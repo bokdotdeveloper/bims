@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Table from '@/Components/Table.vue';
-import ExportButtons from '@/Components/ExportButtons.vue';
 import { router, useForm } from '@inertiajs/vue3';
 import { ref, watch, computed } from 'vue';
 import { PlusOutlined, EditOutlined, DeleteOutlined, TeamOutlined, UserDeleteOutlined, ManOutlined, WomanOutlined } from '@ant-design/icons-vue';
 import { message, Modal } from 'ant-design-vue';
 import { formatDate } from '@/composables/useDateFormat';
+import { disabledFutureDate } from '@/composables/useDisabledFutureDate';
+import { useAuthorization } from '@/composables/useAuthorization';
 import axios from 'axios';
+
+const { can } = useAuthorization();
 
 interface BeneficiaryGroup {
     id: number;
@@ -17,7 +20,6 @@ interface BeneficiaryGroup {
     male_members: number;
     female_members: number;
     date_organized: string;
-    members_count?: number;
 }
 
 interface MemberItem {
@@ -56,17 +58,13 @@ const showAddForm = ref(false);
 const form = useForm({
     group_name: '',
     group_type: '',
-    total_members: '' as any,
-    male_members: '' as any,
-    female_members: '' as any,
     date_organized: '',
 });
 
 const columns = [
     { title: 'Group Name', dataIndex: 'group_name', key: 'group_name' },
     { title: 'Type', dataIndex: 'group_type', key: 'group_type', width: 120 },
-    { title: 'Linked Members', dataIndex: 'members_count', key: 'members_count', width: 130, align: 'center' as const },
-    { title: 'Total', dataIndex: 'total_members', key: 'total_members', width: 80, align: 'center' as const },
+    { title: 'Members', dataIndex: 'total_members', key: 'total_members', width: 80, align: 'center' as const },
     { title: 'Male', dataIndex: 'male_members', key: 'male_members', width: 80, align: 'center' as const },
     { title: 'Female', dataIndex: 'female_members', key: 'female_members', width: 90, align: 'center' as const },
     { title: 'Date Organized', dataIndex: 'date_organized', key: 'date_organized', width: 140 },
@@ -114,9 +112,6 @@ const openEdit = (record: BeneficiaryGroup) => {
     editing.value = record;
     form.group_name = record.group_name;
     form.group_type = record.group_type ?? '';
-    form.total_members = record.total_members ?? '';
-    form.male_members = record.male_members ?? '';
-    form.female_members = record.female_members ?? '';
     form.date_organized = record.date_organized ? record.date_organized.substring(0, 10) : '';
     showModal.value = true;
 };
@@ -216,7 +211,7 @@ const removeMember = (beneficiaryId: string) => {
                             allow-clear
                         />
                         <a-space>
-                            <a-button type="primary" @click="openCreate">
+                            <a-button v-if="can('groups.manage')" type="primary" @click="openCreate">
                                 <template #icon><PlusOutlined /></template>
                                 Add Group
                             </a-button>
@@ -239,8 +234,8 @@ const removeMember = (beneficiaryId: string) => {
                                     <a-tooltip title="Manage Members">
                                         <a-button size="small" @click="openMembersDrawer(record)"><TeamOutlined /></a-button>
                                     </a-tooltip>
-                                    <a-button size="small" @click="openEdit(record)"><EditOutlined /></a-button>
-                                    <a-button size="small" danger @click="handleDelete(record)"><DeleteOutlined /></a-button>
+                                    <a-button v-if="can('groups.manage')" size="small" @click="openEdit(record)"><EditOutlined /></a-button>
+                                    <a-button v-if="can('groups.manage')" size="small" danger @click="handleDelete(record)"><DeleteOutlined /></a-button>
                                 </a-space>
                             </template>
                         </template>
@@ -268,18 +263,20 @@ const removeMember = (beneficiaryId: string) => {
                         <a-input v-model:value="form.group_type" />
                     </a-form-item>
                     <a-form-item label="Date Organized">
-                        <a-input type="date" v-model:value="form.date_organized" class="w-full" />
-                    </a-form-item>
-                    <a-form-item label="Total Members">
-                        <a-input-number v-model:value="form.total_members" :min="0" class="w-full" />
-                    </a-form-item>
-                    <a-form-item label="Male Members">
-                        <a-input-number v-model:value="form.male_members" :min="0" class="w-full" />
-                    </a-form-item>
-                    <a-form-item label="Female Members">
-                        <a-input-number v-model:value="form.female_members" :min="0" class="w-full" />
+                        <a-date-picker
+                            v-model:value="form.date_organized"
+                            value-format="YYYY-MM-DD"
+                            format="MMM D, YYYY"
+                            class="w-full"
+                            allow-clear
+                            placeholder="Select date organized"
+                            :disabled-date="disabledFutureDate"
+                        />
                     </a-form-item>
                 </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-0">
+                    Member totals and male/female counts are updated automatically from beneficiaries linked under Manage Members.
+                </p>
             </a-form>
         </a-modal>
 
@@ -298,7 +295,7 @@ const removeMember = (beneficiaryId: string) => {
                     show-icon
                     class="mb-3"
                 />
-                <div class="flex justify-end">
+                <div v-if="can('groups.manage')" class="flex justify-end">
                     <a-button type="primary" size="small" @click="openAddForm" v-if="!showAddForm">
                         <template #icon><PlusOutlined /></template>
                         Add Member
@@ -307,7 +304,7 @@ const removeMember = (beneficiaryId: string) => {
             </div>
 
             <!-- Add form -->
-            <a-card v-if="showAddForm" class="mb-4" size="small" title="Add a Member">
+            <a-card v-if="can('groups.manage') && showAddForm" class="mb-4" size="small" title="Add a Member">
                 <a-form layout="vertical">
                     <div class="grid grid-cols-2 gap-x-4">
                         <a-form-item label="Beneficiary" class="col-span-2" required>
@@ -332,7 +329,15 @@ const removeMember = (beneficiaryId: string) => {
                             <div class="text-red-500 text-xs" v-if="addForm.errors.beneficiary_id">{{ addForm.errors.beneficiary_id }}</div>
                         </a-form-item>
                         <a-form-item label="Date Joined">
-                            <a-input type="date" v-model:value="addForm.date_joined" class="w-full" />
+                            <a-date-picker
+                                v-model:value="addForm.date_joined"
+                                value-format="YYYY-MM-DD"
+                                format="MMM D, YYYY"
+                                class="w-full"
+                                allow-clear
+                                placeholder="Select date joined"
+                                :disabled-date="disabledFutureDate"
+                            />
                         </a-form-item>
                     </div>
                     <div class="flex gap-2 justify-end">
@@ -362,7 +367,7 @@ const removeMember = (beneficiaryId: string) => {
                             {{ formatDate(record.date_joined) }}
                         </template>
                         <template v-else-if="column.key === 'remove'">
-                            <a-tooltip title="Remove">
+                            <a-tooltip v-if="can('groups.manage')" title="Remove">
                                 <a-button size="small" danger @click="removeMember(record.id)">
                                     <template #icon><UserDeleteOutlined /></template>
                                 </a-button>

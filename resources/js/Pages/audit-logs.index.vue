@@ -6,6 +6,7 @@ import { ref, watch, computed } from 'vue';
 import { AuditOutlined, InfoCircleOutlined } from '@ant-design/icons-vue';
 import { Modal } from 'ant-design-vue';
 import { formatDateTime as formatDate } from '@/composables/useDateFormat';
+import { disabledFutureDate } from '@/composables/useDisabledFutureDate';
 
 interface User { id: string; name: string; email: string; }
 interface Beneficiary { id: string; first_name: string; last_name: string; }
@@ -13,7 +14,7 @@ interface AuditLog {
     id: string;
     user_id: string | null;
     beneficiary_id: string | null;
-    action: 'created' | 'updated' | 'deleted';
+    action: string;
     model_type: string;
     model_id: string | null;
     old_values: Record<string, any> | null;
@@ -92,6 +93,10 @@ const actionColor: Record<string, string> = {
     created: 'green',
     updated: 'blue',
     deleted: 'red',
+    member_added: 'green',
+    member_removed: 'red',
+    permissions_updated: 'purple',
+    roles_updated: 'cyan',
 };
 
 const shortModelType = (type: string) => type.split('\\').pop() ?? type;
@@ -108,8 +113,10 @@ const formatJson = (obj: Record<string, any> | null) => {
 };
 
 // Compute diff between old and new values for updated records
+const diffFriendlyActions = ['updated', 'permissions_updated', 'roles_updated'];
+
 const diffKeys = computed(() => {
-    if (!selectedLog.value || selectedLog.value.action !== 'updated') return [];
+    if (!selectedLog.value || !diffFriendlyActions.includes(selectedLog.value.action)) return [];
     const oldV = selectedLog.value.old_values ?? {};
     const newV = selectedLog.value.new_values ?? {};
     return [...new Set([...Object.keys(oldV), ...Object.keys(newV)])];
@@ -136,18 +143,38 @@ const diffKeys = computed(() => {
                             style="width: 220px"
                             allow-clear
                         />
-                        <a-select v-model:value="filterAction" placeholder="All actions" style="width: 140px" allow-clear>
+                        <a-select v-model:value="filterAction" placeholder="All actions" style="width: 160px" allow-clear>
                             <a-select-option value="created">Created</a-select-option>
                             <a-select-option value="updated">Updated</a-select-option>
                             <a-select-option value="deleted">Deleted</a-select-option>
+                            <a-select-option value="member_added">Member added</a-select-option>
+                            <a-select-option value="member_removed">Member removed</a-select-option>
+                            <a-select-option value="permissions_updated">Permissions updated</a-select-option>
+                            <a-select-option value="roles_updated">Roles updated</a-select-option>
                         </a-select>
                         <a-select v-model:value="filterModel" placeholder="All models" style="width: 170px" allow-clear>
                             <a-select-option v-for="m in modelTypes" :key="m" :value="m">
                                 {{ shortModelType(m) }}
                             </a-select-option>
                         </a-select>
-                        <a-input type="date" v-model:value="filterDateFrom" style="width: 145px" placeholder="Date from" />
-                        <a-input type="date" v-model:value="filterDateTo"   style="width: 145px" placeholder="Date to" />
+                        <a-date-picker
+                            v-model:value="filterDateFrom"
+                            value-format="YYYY-MM-DD"
+                            format="MMM D, YYYY"
+                            allow-clear
+                            placeholder="Date from"
+                            style="width: 145px"
+                            :disabled-date="disabledFutureDate"
+                        />
+                        <a-date-picker
+                            v-model:value="filterDateTo"
+                            value-format="YYYY-MM-DD"
+                            format="MMM D, YYYY"
+                            allow-clear
+                            placeholder="Date to"
+                            style="width: 145px"
+                            :disabled-date="disabledFutureDate"
+                        />
                         <span class="text-gray-400 text-xs self-center ml-auto">
                             {{ logs.total }} record(s) found
                         </span>
@@ -166,8 +193,8 @@ const diffKeys = computed(() => {
                                 <span class="text-xs">{{ formatDate(record.created_at) }}</span>
                             </template>
                             <template v-else-if="column.key === 'action'">
-                                <a-tag :color="actionColor[record.action]" class="capitalize">
-                                    {{ record.action }}
+                                <a-tag :color="actionColor[record.action] ?? 'default'" class="capitalize">
+                                    {{ record.action.replace(/_/g, ' ') }}
                                 </a-tag>
                             </template>
                             <template v-else-if="column.key === 'model'">
@@ -211,7 +238,7 @@ const diffKeys = computed(() => {
                 <a-descriptions bordered size="small" :column="2" class="mb-4">
                     <a-descriptions-item label="ID" :span="2">{{ selectedLog.id }}</a-descriptions-item>
                     <a-descriptions-item label="Action">
-                        <a-tag :color="actionColor[selectedLog.action]" class="capitalize">{{ selectedLog.action }}</a-tag>
+                        <a-tag :color="actionColor[selectedLog.action] ?? 'default'" class="capitalize">{{ selectedLog.action.replace(/_/g, ' ') }}</a-tag>
                     </a-descriptions-item>
                     <a-descriptions-item label="Date">{{ formatDate(selectedLog.created_at) }}</a-descriptions-item>
                     <a-descriptions-item label="Model Type">{{ selectedLog.model_type }}</a-descriptions-item>
@@ -227,8 +254,8 @@ const diffKeys = computed(() => {
                     </a-descriptions-item>
                 </a-descriptions>
 
-                <!-- Diff view for updated records -->
-                <template v-if="selectedLog.action === 'updated' && diffKeys.length">
+                <!-- Diff view for updated-style records -->
+                <template v-if="diffFriendlyActions.includes(selectedLog.action) && diffKeys.length">
                     <div class="font-semibold text-sm mb-2">Changes</div>
                     <a-table
                         :data-source="diffKeys.map(k => ({ key: k, field: k, old: selectedLog!.old_values?.[k], new: selectedLog!.new_values?.[k] }))"

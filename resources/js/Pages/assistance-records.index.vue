@@ -7,6 +7,10 @@ import { ref, watch, computed } from 'vue';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, TeamOutlined } from '@ant-design/icons-vue';
 import { message, Modal } from 'ant-design-vue';
 import { formatDate } from '@/composables/useDateFormat';
+import { disabledFutureDate } from '@/composables/useDisabledFutureDate';
+import { useAuthorization } from '@/composables/useAuthorization';
+
+const { can } = useAuthorization();
 
 interface Project { id: string; project_name: string; }
 interface Beneficiary { id: string; first_name: string; last_name: string; beneficiary_code: string; }
@@ -182,11 +186,12 @@ const onRecipientTypeChange = () => {
                         </a-space>
                         <a-space>
                             <ExportButtons
+                                v-if="can('reports.export')"
                                 :pdf-route="route('reports.assistance.pdf')"
                                 :excel-route="route('reports.assistance.excel')"
                                 :params="{ search, project_id: filterProject, recipient_type: filterType }"
                             />
-                            <a-button type="primary" @click="openCreate">
+                            <a-button v-if="can('assistance.manage')" type="primary" @click="openCreate">
                                 <template #icon><PlusOutlined /></template>
                                 Add Record
                             </a-button>
@@ -230,8 +235,8 @@ const onRecipientTypeChange = () => {
                             </template>
                             <template v-else-if="column.key === 'action'">
                                 <a-space>
-                                    <a-button size="small" @click="openEdit(record)"><EditOutlined /></a-button>
-                                    <a-button size="small" danger @click="handleDelete(record)"><DeleteOutlined /></a-button>
+                                    <a-button v-if="can('assistance.manage')" size="small" @click="openEdit(record)"><EditOutlined /></a-button>
+                                    <a-button v-if="can('assistance.manage')" size="small" danger @click="handleDelete(record)"><DeleteOutlined /></a-button>
                                 </a-space>
                             </template>
                         </template>
@@ -282,8 +287,11 @@ const onRecipientTypeChange = () => {
                                 <span class="text-gray-400 ml-1">{{ b.beneficiary_code }}</span>
                             </a-select-option>
                         </a-select>
-                        <div class="text-red-500 text-xs" v-if="form.errors.beneficiary_id">{{ form.errors.beneficiary_id }}</div>
-                    </a-form-item>
+                            <div class="text-red-500 text-xs" v-if="form.errors.beneficiary_id">{{ form.errors.beneficiary_id }}</div>
+                            <p class="text-gray-500 text-xs mt-1 mb-0">
+                                Beneficiaries linked to a group that is enrolled on a project are listed under Beneficiary Group.
+                            </p>
+                        </a-form-item>
 
                     <!-- Group Selector -->
                     <a-form-item v-if="form.recipient_type === 'group'" label="Beneficiary Group" class="col-span-2" required>
@@ -315,7 +323,14 @@ const onRecipientTypeChange = () => {
                         <a-input-number v-model:value="form.amount" :min="0" :precision="2" class="w-full" />
                     </a-form-item>
                     <a-form-item label="Date Released" required>
-                        <a-input type="date" v-model:value="form.date_released" class="w-full" />
+                        <a-date-picker
+                            v-model:value="form.date_released"
+                            value-format="YYYY-MM-DD"
+                            format="MMM D, YYYY"
+                            class="w-full"
+                            placeholder="Select date released"
+                            :disabled-date="disabledFutureDate"
+                        />
                         <div class="text-red-500 text-xs" v-if="form.errors.date_released">{{ form.errors.date_released }}</div>
                     </a-form-item>
                     <a-form-item label="Released By">

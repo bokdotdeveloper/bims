@@ -11,14 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('beneficiary_beneficiary_group', function (Blueprint $table) {
+        Schema::create('beneficiary_group_project', function (Blueprint $table) {
             $table->id();
-            $table->foreignUuid('beneficiary_id')->constrained()->cascadeOnDelete();
             $table->foreignId('beneficiary_group_id')->constrained()->cascadeOnDelete();
-            $table->date('date_joined')->nullable();
+            $table->foreignUuid('project_id')->constrained()->cascadeOnDelete();
+            $table->date('date_enrolled');
+            $table->enum('status', ['Active', 'Completed', 'Dropped', 'Transferred'])
+                ->default('Active');
+            $table->text('remarks')->nullable();
             $table->timestamps();
 
-            $table->unique(['beneficiary_id', 'beneficiary_group_id']);
+            $table->unique(['beneficiary_group_id', 'project_id']);
         });
     }
 
@@ -27,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('beneficiary_beneficiary_group');
+        Schema::dropIfExists('beneficiary_group_project');
     }
 };

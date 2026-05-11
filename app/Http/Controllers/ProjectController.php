@@ -3,14 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Beneficiary;
+use App\Models\BeneficiaryGroup;
 use App\Models\Project;
+use App\Support\AuditLogger;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class ProjectController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Project::query()->withCount('beneficiaries');
+        $query = Project::query()->withCount(['beneficiaries', 'beneficiaryGroups']);
 
         if ($request->filled('search')) {
             $q = $request->search;
@@ -21,7 +24,11 @@ class ProjectController extends Controller
         }
 
         if ($request->filled('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
+            if ($request->boolean('is_active')) {
+                $query->currentlyActiveByDates();
+            } else {
+                $query->notCurrentlyActiveByDates();
+            }
         }
 
         return inertia('projects.index', [
@@ -35,11 +42,10 @@ class ProjectController extends Controller
         $validated = $request->validate([
             'project_name' => 'required|string|max:255',
             'project_code' => 'required|string|max:50|unique:projects',
-            'description'  => 'nullable|string',
+            'description' => 'nullable|string',
             'date_started' => 'required|date',
-            'date_ended'   => 'nullable|date|after_or_equal:date_started',
-            'fund_source'  => 'nullable|string|max:255',
-            'is_active'    => 'boolean',
+            'date_ended' => 'nullable|date|after_or_equal:date_started',
+            'fund_source' => 'nullable|string|max:255',
         ]);
 
         Project::create($validated);
@@ -50,6 +56,7 @@ class ProjectController extends Controller
     public function show(string $id)
     {
         $project = Project::with('beneficiaries')->findOrFail($id);
+
         return inertia('projects.show', ['project' => $project]);
     }
 
@@ -59,12 +66,11 @@ class ProjectController extends Controller
 
         $validated = $request->validate([
             'project_name' => 'required|string|max:255',
-            'project_code' => 'required|string|max:50|unique:projects,project_code,' . $id,
-            'description'  => 'nullable|string',
+            'project_code' => 'required|string|max:50|unique:projects,project_code,'.$id,
+            'description' => 'nullable|string',
             'date_started' => 'required|date',
-            'date_ended'   => 'nullable|date|after_or_equal:date_started',
-            'fund_source'  => 'nullable|string|max:255',
-            'is_active'    => 'boolean',
+            'date_ended' => 'nullable|date|after_or_equal:date_started',
+            'fund_source' => 'nullable|string|max:255',
         ]);
 
         $project->update($validated);
@@ -89,13 +95,13 @@ class ProjectController extends Controller
             ->orderBy('last_name')
             ->get()
             ->map(fn ($b) => [
-                'id'               => $b->id,
-                'first_name'       => $b->first_name,
-                'last_name'        => $b->last_name,
+                'id' => $b->id,
+                'first_name' => $b->first_name,
+                'last_name' => $b->last_name,
                 'beneficiary_code' => $b->beneficiary_code,
-                'barangay'         => $b->barangay,
-                'date_enrolled'    => $b->pivot->date_enrolled,
-                'status'           => $b->pivot->status,
+                'barangay' => $b->barangay,
+                'date_enrolled' => $b->pivot->date_enrolled,
+                'status' => $b->pivot->status,
             ]);
 
         return response()->json($members);
@@ -108,17 +114,30 @@ class ProjectController extends Controller
 
         $validated = $request->validate([
             'beneficiary_id' => 'required|exists:beneficiaries,id',
-            'date_enrolled'  => 'required|date',
-            'status'         => 'required|in:Active,Completed,Dropped,Transferred',
-            'remarks'        => 'nullable|string',
+            'date_enrolled' => 'required|date',
+            'status' => 'required|in:Active,Completed,Dropped,Transferred',
+            'remarks' => 'nullable|string',
         ]);
+
+        $beneficiary = Beneficiary::findOrFail($validated['beneficiary_id']);
+        if ($beneficiary->groups()->whereHas('projects', fn ($q) => $q->where('projects.id', $project->id))->exists()) {
+            throw ValidationException::withMessages([
+                'beneficiary_id' => 'This beneficiary belongs to a beneficiary group already enrolled in this project. Manage enrollment via the group or remove the group first.',
+            ]);
+        }
 
         $project->beneficiaries()->syncWithoutDetaching([
             $validated['beneficiary_id'] => [
                 'date_enrolled' => $validated['date_enrolled'],
-                'status'        => $validated['status'],
-                'remarks'       => $validated['remarks'] ?? null,
+                'status' => $validated['status'],
+                'remarks' => $validated['remarks'] ?? null,
             ],
+        ]);
+
+        AuditLogger::recordBeneficiaryMemberAttached($project, $validated['beneficiary_id'], [
+            'date_enrolled' => $validated['date_enrolled'],
+            'status' => $validated['status'],
+            'remarks' => $validated['remarks'] ?? null,
         ]);
 
         return back()->with('success', 'Beneficiary enrolled.');
@@ -129,6 +148,8 @@ class ProjectController extends Controller
     {
         $project = Project::findOrFail($id);
         $project->beneficiaries()->detach($beneficiaryId);
+
+        AuditLogger::recordBeneficiaryMemberDetached($project, $beneficiaryId);
 
         return back()->with('success', 'Beneficiary removed from project.');
     }
@@ -142,9 +163,88 @@ class ProjectController extends Controller
         $beneficiaries = Beneficiary::select('id', 'first_name', 'last_name', 'beneficiary_code')
             ->where('is_active', true)
             ->whereNotIn('id', $enrolledIds)
+            ->whereDoesntHave('groups', function ($q) use ($project): void {
+                $q->whereHas('projects', fn ($q2) => $q2->where('projects.id', $project->id));
+            })
             ->orderBy('last_name')
             ->get();
 
         return response()->json($beneficiaries);
+    }
+
+    /** Return enrolled beneficiary groups as JSON (drawer). */
+    public function listGroups(string $id)
+    {
+        $project = Project::findOrFail($id);
+        $groups = $project->beneficiaryGroups()
+            ->select('beneficiary_groups.id', 'group_name', 'group_type', 'total_members')
+            ->orderBy('group_name')
+            ->get()
+            ->map(fn ($g) => [
+                'id' => $g->id,
+                'group_name' => $g->group_name,
+                'group_type' => $g->group_type,
+                'total_members' => $g->total_members,
+                'date_enrolled' => $g->pivot->date_enrolled,
+                'status' => $g->pivot->status,
+            ]);
+
+        return response()->json($groups);
+    }
+
+    public function enrollGroup(Request $request, string $id)
+    {
+        $project = Project::findOrFail($id);
+
+        $validated = $request->validate([
+            'beneficiary_group_id' => 'required|exists:beneficiary_groups,id',
+            'date_enrolled' => 'required|date',
+            'status' => 'required|in:Active,Completed,Dropped,Transferred',
+            'remarks' => 'nullable|string',
+        ]);
+
+        $project->beneficiaryGroups()->syncWithoutDetaching([
+            $validated['beneficiary_group_id'] => [
+                'date_enrolled' => $validated['date_enrolled'],
+                'status' => $validated['status'],
+                'remarks' => $validated['remarks'] ?? null,
+            ],
+        ]);
+
+        AuditLogger::record($project, 'member_added', [], [
+            'beneficiary_group_id' => (string) $validated['beneficiary_group_id'],
+            'enrollment_type' => 'beneficiary_group',
+            'date_enrolled' => $validated['date_enrolled'],
+            'status' => $validated['status'],
+            'remarks' => $validated['remarks'] ?? null,
+        ]);
+
+        return back()->with('success', 'Beneficiary group enrolled.');
+    }
+
+    public function removeGroup(string $id, BeneficiaryGroup $group)
+    {
+        $project = Project::findOrFail($id);
+        $project->beneficiaryGroups()->detach($group->getKey());
+
+        AuditLogger::record($project, 'member_removed', [
+            'beneficiary_group_id' => (string) $group->getKey(),
+            'enrollment_type' => 'beneficiary_group',
+        ], []);
+
+        return back()->with('success', 'Beneficiary group removed from project.');
+    }
+
+    /** Groups not yet enrolled on this project. */
+    public function availableGroups(string $id)
+    {
+        $project = Project::findOrFail($id);
+
+        $groups = BeneficiaryGroup::select('id', 'group_name', 'group_type', 'total_members')
+            ->whereDoesntHave('projects', fn ($q) => $q->where('projects.id', $project->id))
+            ->orderBy('group_name')
+            ->get();
+
+        return response()->json($groups);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Beneficiary;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class BeneficiaryController extends Controller
 {
@@ -51,20 +52,28 @@ class BeneficiaryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'beneficiary_code'  => 'required|string|max:50|unique:beneficiaries',
-            'beneficiary_type'  => 'nullable|string|max:100',
-            'last_name'         => 'required|string|max:100',
-            'first_name'        => 'required|string|max:100',
-            'middle_name'       => 'nullable|string|max:100',
-            'date_of_birth'     => 'required|date',
-            'sex'               => 'required|in:Male,Female',
-            'civil_status'      => 'required|string|max:50',
-            'address'           => 'nullable|string|max:255',
-            'barangay'          => 'nullable|string|max:100',
-            'municipality'      => 'nullable|string|max:100',
-            'province'          => 'nullable|string|max:100',
-            'contact_number'    => 'nullable|string|max:20',
-            'is_active'         => 'boolean',
+            'beneficiary_type' => 'nullable|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'first_name' => 'required|string|max:100',
+            'middle_name' => 'nullable|string|max:100',
+            'date_of_birth' => 'required|date',
+            'sex' => 'required|in:Male,Female',
+            'civil_status' => 'required|string|max:50',
+            'address' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('beneficiaries', 'address')
+                    ->where(fn ($query) => $query
+                        ->whereDate('date_of_birth', $request->date_of_birth)
+                        ->whereNull('deleted_at')),
+            ],
+            'region' => 'required|string|max:100',
+            'barangay' => 'required|string|max:100',
+            'municipality' => 'required|string|max:100',
+            'province' => 'required|string|max:100',
+            'contact_number' => 'nullable|string|max:20',
+            'is_active' => 'boolean',
         ]);
 
         $beneficiary = Beneficiary::create($validated);
@@ -84,22 +93,22 @@ class BeneficiaryController extends Controller
             ->latest('date_released')
             ->get()
             ->map(fn ($r) => [
-                'id'             => $r->id,
-                'assistance_type'=> $r->assistance_type,
-                'amount'         => $r->amount,
-                'date_released'  => $r->date_released?->toDateString(),
-                'project'        => $r->project?->project_name,
-                'released_by'    => $r->released_by,
-                'remarks'        => $r->remarks,
+                'id' => $r->id,
+                'assistance_type' => $r->assistance_type,
+                'amount' => $r->amount,
+                'date_released' => $r->date_released?->toDateString(),
+                'project' => $r->project?->project_name,
+                'released_by' => $r->released_by,
+                'remarks' => $r->remarks,
             ]);
 
         $groups = $beneficiary->groups()
             ->select('beneficiary_groups.id', 'group_name', 'group_type')
             ->get()
             ->map(fn ($g) => [
-                'id'          => $g->id,
-                'group_name'  => $g->group_name,
-                'group_type'  => $g->group_type,
+                'id' => $g->id,
+                'group_name' => $g->group_name,
+                'group_type' => $g->group_type,
                 'date_joined' => $g->pivot->date_joined,
             ]);
 
@@ -112,6 +121,7 @@ class BeneficiaryController extends Controller
     public function show(string $id)
     {
         $beneficiary = Beneficiary::with(['projects', 'trainings', 'assistanceRecords'])->findOrFail($id);
+
         return inertia('beneficiaries.show', ['beneficiary' => $beneficiary]);
     }
 
@@ -131,20 +141,29 @@ class BeneficiaryController extends Controller
         $beneficiary = Beneficiary::findOrFail($id);
 
         $validated = $request->validate([
-            'beneficiary_code'  => 'required|string|max:50|unique:beneficiaries,beneficiary_code,' . $id,
-            'beneficiary_type'  => 'nullable|string|max:100',
-            'last_name'         => 'required|string|max:100',
-            'first_name'        => 'required|string|max:100',
-            'middle_name'       => 'nullable|string|max:100',
-            'date_of_birth'     => 'required|date',
-            'sex'               => 'required|in:Male,Female',
-            'civil_status'      => 'required|string|max:50',
-            'address'           => 'nullable|string|max:255',
-            'barangay'          => 'nullable|string|max:100',
-            'municipality'      => 'nullable|string|max:100',
-            'province'          => 'nullable|string|max:100',
-            'contact_number'    => 'nullable|string|max:20',
-            'is_active'         => 'boolean',
+            'beneficiary_type' => 'nullable|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'first_name' => 'required|string|max:100',
+            'middle_name' => 'nullable|string|max:100',
+            'date_of_birth' => 'required|date',
+            'sex' => 'required|in:Male,Female',
+            'civil_status' => 'required|string|max:50',
+            'address' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('beneficiaries', 'address')
+                    ->ignore($id)
+                    ->where(fn ($query) => $query
+                        ->whereDate('date_of_birth', $request->date_of_birth)
+                        ->whereNull('deleted_at')),
+            ],
+            'region' => 'required|string|max:100',
+            'barangay' => 'required|string|max:100',
+            'municipality' => 'required|string|max:100',
+            'province' => 'required|string|max:100',
+            'contact_number' => 'nullable|string|max:20',
+            'is_active' => 'boolean',
         ]);
 
         $beneficiary->update($validated);

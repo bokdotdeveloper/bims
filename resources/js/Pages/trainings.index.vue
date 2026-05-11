@@ -7,7 +7,11 @@ import { ref, watch, computed } from 'vue';
 import { PlusOutlined, EditOutlined, DeleteOutlined, TeamOutlined, UserDeleteOutlined } from '@ant-design/icons-vue';
 import { message, Modal } from 'ant-design-vue';
 import { formatDate } from '@/composables/useDateFormat';
+import { disabledFutureDate } from '@/composables/useDisabledFutureDate';
+import { useAuthorization } from '@/composables/useAuthorization';
 import axios from 'axios';
+
+const { can } = useAuthorization();
 
 interface Project {
     id: string;
@@ -243,17 +247,18 @@ const completionColors: Record<string, string> = { Completed: 'green', Incomplet
                             </a-select>
                         </a-space>
                         <a-space>
-                                <ExportButtons
-                                    :pdf-route="route('reports.trainings.pdf')"
-                                    :excel-route="route('reports.trainings.excel')"
-                                    :params="{ search, project_id: filterProject }"
-                                />
-                                <a-button type="primary" @click="openCreate">
-                                    <template #icon><PlusOutlined /></template>
-                                    Add Training
-                                </a-button>
-                            </a-space>
-                        </div>
+                            <ExportButtons
+                                v-if="can('reports.export')"
+                                :pdf-route="route('reports.trainings.pdf')"
+                                :excel-route="route('reports.trainings.excel')"
+                                :params="{ search, project_id: filterProject }"
+                            />
+                            <a-button v-if="can('trainings.manage')" type="primary" @click="openCreate">
+                                <template #icon><PlusOutlined /></template>
+                                Add Training
+                            </a-button>
+                        </a-space>
+                    </div>
 
                     <Table
                         :columns="columns"
@@ -274,8 +279,8 @@ const completionColors: Record<string, string> = { Completed: 'green', Incomplet
                                     <a-tooltip title="Manage Participants">
                                         <a-button size="small" @click="openParticipantsDrawer(record)"><TeamOutlined /></a-button>
                                     </a-tooltip>
-                                    <a-button size="small" @click="openEdit(record)"><EditOutlined /></a-button>
-                                    <a-button size="small" danger @click="handleDelete(record)"><DeleteOutlined /></a-button>
+                                    <a-button v-if="can('trainings.manage')" size="small" @click="openEdit(record)"><EditOutlined /></a-button>
+                                    <a-button v-if="can('trainings.manage')" size="small" danger @click="handleDelete(record)"><DeleteOutlined /></a-button>
                                 </a-space>
                             </template>
                         </template>
@@ -309,7 +314,14 @@ const completionColors: Record<string, string> = { Completed: 'green', Incomplet
                         <a-input v-model:value="form.venue" />
                     </a-form-item>
                     <a-form-item label="Date Conducted" required>
-                        <a-input type="date" v-model:value="form.date_conducted" class="w-full" />
+                        <a-date-picker
+                            v-model:value="form.date_conducted"
+                            value-format="YYYY-MM-DD"
+                            format="MMM D, YYYY"
+                            class="w-full"
+                            placeholder="Select date conducted"
+                            :disabled-date="disabledFutureDate"
+                        />
                         <div class="text-red-500 text-xs" v-if="form.errors.date_conducted">{{ form.errors.date_conducted }}</div>
                     </a-form-item>
                     <a-form-item label="Duration (Hours)">
@@ -332,7 +344,7 @@ const completionColors: Record<string, string> = { Completed: 'green', Incomplet
             width="700"
             destroy-on-close
         >
-            <div class="mb-3 flex justify-end">
+            <div v-if="can('trainings.manage')" class="mb-3 flex justify-end">
                 <a-button type="primary" size="small" @click="openAddForm" v-if="!showAddForm">
                     <template #icon><PlusOutlined /></template>
                     Add Participant
@@ -340,7 +352,7 @@ const completionColors: Record<string, string> = { Completed: 'green', Incomplet
             </div>
 
             <!-- Add form -->
-            <a-card v-if="showAddForm" class="mb-4" size="small" title="Add a Participant">
+            <a-card v-if="can('trainings.manage') && showAddForm" class="mb-4" size="small" title="Add a Participant">
                 <a-form layout="vertical">
                     <div class="grid grid-cols-2 gap-x-4">
                         <a-form-item label="Beneficiary" class="col-span-2" required>
@@ -364,7 +376,15 @@ const completionColors: Record<string, string> = { Completed: 'green', Incomplet
                             <div class="text-red-500 text-xs" v-if="addForm.errors.beneficiary_id">{{ addForm.errors.beneficiary_id }}</div>
                         </a-form-item>
                         <a-form-item label="Date Attended">
-                            <a-input type="date" v-model:value="addForm.date_attended" class="w-full" />
+                            <a-date-picker
+                                v-model:value="addForm.date_attended"
+                                value-format="YYYY-MM-DD"
+                                format="MMM D, YYYY"
+                                class="w-full"
+                                allow-clear
+                                placeholder="Select date attended"
+                                :disabled-date="disabledFutureDate"
+                            />
                         </a-form-item>
                         <a-form-item label="Completion Status" required>
                             <a-select v-model:value="addForm.completion_status" style="width: 100%">
@@ -400,7 +420,7 @@ const completionColors: Record<string, string> = { Completed: 'green', Incomplet
                             <a-tag :color="completionColors[record.completion_status] ?? 'default'">{{ record.completion_status }}</a-tag>
                         </template>
                         <template v-else-if="column.key === 'remove'">
-                            <a-tooltip title="Remove">
+                            <a-tooltip v-if="can('trainings.manage')" title="Remove">
                                 <a-button size="small" danger @click="removeParticipant(record.id)">
                                     <template #icon><UserDeleteOutlined /></template>
                                 </a-button>

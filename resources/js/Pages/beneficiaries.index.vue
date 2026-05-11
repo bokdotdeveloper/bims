@@ -3,11 +3,15 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import Table from '@/Components/Table.vue';
 import ExportButtons from '@/Components/ExportButtons.vue';
 import { router, useForm } from '@inertiajs/vue3';
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onMounted } from 'vue';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, TeamOutlined, UsergroupAddOutlined, WarningOutlined } from '@ant-design/icons-vue';
 import { message, Modal } from 'ant-design-vue';
 import { formatDate } from '@/composables/useDateFormat';
+import { disabledFutureDate } from '@/composables/useDisabledFutureDate';
+import { useAuthorization } from '@/composables/useAuthorization';
 import axios from 'axios';
+
+const { can } = useAuthorization();
 
 interface Beneficiary {
     id: string;
@@ -20,6 +24,7 @@ interface Beneficiary {
     sex: string;
     civil_status: string;
     address: string;
+    region: string;
     barangay: string;
     municipality: string;
     province: string;
@@ -129,7 +134,6 @@ const familyForm = ref({
 });
 
 const form = useForm({
-    beneficiary_code: '',
     beneficiary_type: '',
     last_name: '',
     first_name: '',
@@ -138,12 +142,41 @@ const form = useForm({
     sex: 'Male',
     civil_status: 'Single',
     address: '',
+    region: '',
     barangay: '',
     municipality: '',
     province: '',
     contact_number: '',
     is_active: true,
 });
+
+interface PsgcOption {
+    code: string;
+    name: string;
+}
+
+interface ProvinceCityOption extends PsgcOption {
+    kind: 'province' | 'cityMunicipality';
+}
+
+const PSGC_BASE_URL = 'https://psgc.gitlab.io/api';
+const regionOptions = ref<PsgcOption[]>([]);
+const provinceCityOptions = ref<ProvinceCityOption[]>([]);
+const municipalityOptions = ref<PsgcOption[]>([]);
+const barangayOptions = ref<PsgcOption[]>([]);
+const regionLoading = ref(false);
+const provinceCityLoading = ref(false);
+const municipalityLoading = ref(false);
+const barangayLoading = ref(false);
+const selectedRegionCode = ref('');
+const selectedProvinceCityCode = ref('');
+const selectedProvinceCityKind = ref<'province' | 'cityMunicipality' | ''>('');
+const selectedMunicipalityCode = ref('');
+
+/** Edit-only: true while PSGC cascade is loading so selects stay disabled until options match saved values. */
+const locationCascadeHydrating = ref(false);
+
+let editLocationHydrateGeneration = 0;
 
 const columns = [
     { title: 'Code', dataIndex: 'beneficiary_code', key: 'beneficiary_code', width: 120 },
@@ -184,6 +217,10 @@ const familyColumns = [
 ];
 
 let searchTimeout: ReturnType<typeof setTimeout>;
+onMounted(() => {
+    void ensureRegionsLoaded();
+});
+
 watch(search, (val) => {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
@@ -205,18 +242,249 @@ const handleTableChange = (pag: any) => {
     }, { preserveState: true, replace: true });
 };
 
+const normalizeName = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
+
+const hasOptionByName = <T extends { name: string }>(options: T[], value: string) =>
+    options.some((o) => normalizeName(o.name) === normalizeName(value));
+
+const upsertLegacyOption = (options: PsgcOption[], value: string) => {
+    if (!value) return;
+    if (!hasOptionByName(options, value)) options.push({ code: `legacy-${value}`, name: value });
+};
+
+const clearLocationSelection = () => {
+    selectedRegionCode.value = '';
+    selectedProvinceCityCode.value = '';
+    selectedProvinceCityKind.value = '';
+    selectedMunicipalityCode.value = '';
+    provinceCityOptions.value = [];
+    municipalityOptions.value = [];
+    barangayOptions.value = [];
+};
+
+const ensureRegionsLoaded = async () => {
+    if (regionOptions.value.length) return;
+    regionLoading.value = true;
+    try {
+        const res = await axios.get(`${PSGC_BASE_URL}/regions`);
+        regionOptions.value = (res.data ?? [])
+            .map((item: any) => ({ code: item.code, name: item.name ?? item.regionName }))
+            .filter((item: PsgcOption) => !!item.code && !!item.name)
+            .sort((a: PsgcOption, b: PsgcOption) => a.name.localeCompare(b.name));
+    } catch {
+        message.error('Unable to load Philippine regions right now.');
+    } finally {
+        regionLoading.value = false;
+    }
+};
+
+const fetchProvinceCityOptions = async (regionCode: string) => {
+    if (!regionCode) return;
+    provinceCityLoading.value = true;
+    try {
+        const [provincesRes, citiesRes] = await Promise.all([
+            axios.get(`${PSGC_BASE_URL}/regions/${regionCode}/provinces`),
+            axios.get(`${PSGC_BASE_URL}/regions/${regionCode}/cities-municipalities`),
+        ]);
+
+        const provinces = (provincesRes.data ?? []).map((item: any) => ({
+            code: item.code,
+            name: item.name ?? item.provinceName,
+            kind: 'province' as const,
+        }));
+
+        const cities = (citiesRes.data ?? []).map((item: any) => ({
+            code: item.code,
+            name: item.name ?? item.cityName,
+            kind: 'cityMunicipality' as const,
+        }));
+
+        provinceCityOptions.value = [...provinces, ...cities]
+            .filter((item: ProvinceCityOption) => !!item.code && !!item.name)
+            .sort((a: ProvinceCityOption, b: ProvinceCityOption) => a.name.localeCompare(b.name));
+    } catch {
+        provinceCityOptions.value = [];
+        message.error('Unable to load provinces/cities for the selected region.');
+    } finally {
+        provinceCityLoading.value = false;
+    }
+};
+
+const fetchMunicipalityOptions = async (provinceCode: string) => {
+    if (!provinceCode) return;
+    municipalityLoading.value = true;
+    try {
+        const res = await axios.get(`${PSGC_BASE_URL}/provinces/${provinceCode}/cities-municipalities`);
+        municipalityOptions.value = (res.data ?? [])
+            .map((item: any) => ({ code: item.code, name: item.name ?? item.cityName }))
+            .filter((item: PsgcOption) => !!item.code && !!item.name)
+            .sort((a: PsgcOption, b: PsgcOption) => a.name.localeCompare(b.name));
+    } catch {
+        municipalityOptions.value = [];
+        message.error('Unable to load municipalities for the selected province.');
+    } finally {
+        municipalityLoading.value = false;
+    }
+};
+
+const fetchBarangayOptions = async (municipalityCode: string) => {
+    if (!municipalityCode) return;
+    barangayLoading.value = true;
+    try {
+        const res = await axios.get(`${PSGC_BASE_URL}/cities-municipalities/${municipalityCode}/barangays`);
+        barangayOptions.value = (res.data ?? [])
+            .map((item: any) => ({ code: item.code, name: item.name ?? item.barangayName }))
+            .filter((item: PsgcOption) => !!item.code && !!item.name)
+            .sort((a: PsgcOption, b: PsgcOption) => a.name.localeCompare(b.name));
+    } catch {
+        barangayOptions.value = [];
+        message.error('Unable to load barangays for the selected municipality.');
+    } finally {
+        barangayLoading.value = false;
+    }
+};
+
+const handleRegionChange = async (regionName: string) => {
+    const selectedRegion = regionOptions.value.find((option) => option.name === regionName);
+    selectedRegionCode.value = selectedRegion?.code ?? '';
+    form.province = '';
+    form.municipality = '';
+    form.barangay = '';
+    selectedProvinceCityCode.value = '';
+    selectedProvinceCityKind.value = '';
+    selectedMunicipalityCode.value = '';
+    provinceCityOptions.value = [];
+    municipalityOptions.value = [];
+    barangayOptions.value = [];
+
+    if (selectedRegionCode.value) {
+        await fetchProvinceCityOptions(selectedRegionCode.value);
+    }
+};
+
+const handleProvinceCityChange = async (provinceOrCityName: string) => {
+    const selected = provinceCityOptions.value.find((option) => option.name === provinceOrCityName);
+    selectedProvinceCityCode.value = selected?.code ?? '';
+    selectedProvinceCityKind.value = selected?.kind ?? '';
+    form.municipality = '';
+    form.barangay = '';
+    selectedMunicipalityCode.value = '';
+    municipalityOptions.value = [];
+    barangayOptions.value = [];
+
+    if (!selected) return;
+
+    if (selected.kind === 'province') {
+        await fetchMunicipalityOptions(selected.code);
+        return;
+    }
+
+    municipalityOptions.value = [{ code: selected.code, name: selected.name }];
+    form.municipality = selected.name;
+    selectedMunicipalityCode.value = selected.code;
+    await fetchBarangayOptions(selected.code);
+};
+
+const handleMunicipalityChange = async (municipalityName: string) => {
+    const selected = municipalityOptions.value.find((option) => option.name === municipalityName);
+    selectedMunicipalityCode.value = selected?.code ?? '';
+    form.barangay = '';
+    barangayOptions.value = [];
+    if (selectedMunicipalityCode.value) {
+        await fetchBarangayOptions(selectedMunicipalityCode.value);
+    }
+};
+
+const syncAddressFromLocation = () => {
+    const parts = [form.barangay, form.municipality, form.province, form.region]
+        .map((part) => (part ?? '').trim())
+        .filter((part) => part.length > 0);
+
+    form.address = parts.join(', ');
+};
+
+const resetLocationFieldsForCreate = () => {
+    clearLocationSelection();
+    form.region = '';
+    form.province = '';
+    form.municipality = '';
+    form.barangay = '';
+};
+
+/** Loads province → municipality → barangay options for an existing record without blocking the modal. */
+const hydrateLocationCascadeForEdit = async (record: Beneficiary) => {
+    editLocationHydrateGeneration += 1;
+    const gen = editLocationHydrateGeneration;
+    locationCascadeHydrating.value = true;
+    try {
+        clearLocationSelection();
+        await ensureRegionsLoaded();
+        if (gen !== editLocationHydrateGeneration) return;
+
+        form.region = record.region ?? '';
+        form.province = record.province ?? '';
+        form.municipality = record.municipality ?? '';
+        form.barangay = record.barangay ?? '';
+
+        const selectedRegion = regionOptions.value.find((option) => normalizeName(option.name) === normalizeName(form.region));
+        if (!selectedRegion) {
+            upsertLegacyOption(regionOptions.value, form.region);
+            return;
+        }
+
+        selectedRegionCode.value = selectedRegion.code;
+        await fetchProvinceCityOptions(selectedRegionCode.value);
+        if (gen !== editLocationHydrateGeneration) return;
+
+        const selectedProvinceCity = provinceCityOptions.value.find((option) => normalizeName(option.name) === normalizeName(form.province));
+        if (!selectedProvinceCity) {
+            if (form.province && !hasOptionByName(provinceCityOptions.value, form.province)) {
+                provinceCityOptions.value.push({ code: `legacy-${form.province}`, name: form.province, kind: 'province' });
+            }
+            return;
+        }
+
+        selectedProvinceCityCode.value = selectedProvinceCity.code;
+        selectedProvinceCityKind.value = selectedProvinceCity.kind;
+
+        if (selectedProvinceCity.kind === 'province') {
+            await fetchMunicipalityOptions(selectedProvinceCity.code);
+        } else {
+            municipalityOptions.value = [{ code: selectedProvinceCity.code, name: selectedProvinceCity.name }];
+        }
+        if (gen !== editLocationHydrateGeneration) return;
+
+        const selectedMunicipality = municipalityOptions.value.find((option) => normalizeName(option.name) === normalizeName(form.municipality));
+        if (!selectedMunicipality) {
+            upsertLegacyOption(municipalityOptions.value, form.municipality);
+            return;
+        }
+
+        selectedMunicipalityCode.value = selectedMunicipality.code;
+        await fetchBarangayOptions(selectedMunicipalityCode.value);
+        if (gen !== editLocationHydrateGeneration) return;
+
+        upsertLegacyOption(barangayOptions.value, form.barangay);
+    } finally {
+        if (gen === editLocationHydrateGeneration) {
+            locationCascadeHydrating.value = false;
+        }
+    }
+};
+
 const openCreate = () => {
     editing.value = null;
     form.reset();
     form.is_active = true;
     form.sex = 'Male';
     form.civil_status = 'Single';
+    resetLocationFieldsForCreate();
     showModal.value = true;
+    void ensureRegionsLoaded();
 };
 
 const openEdit = (record: Beneficiary) => {
     editing.value = record;
-    form.beneficiary_code = record.beneficiary_code;
     form.beneficiary_type = record.beneficiary_type ?? '';
     form.last_name = record.last_name;
     form.first_name = record.first_name;
@@ -225,12 +493,15 @@ const openEdit = (record: Beneficiary) => {
     form.sex = record.sex;
     form.civil_status = record.civil_status;
     form.address = record.address ?? '';
+    form.region = record.region ?? '';
     form.barangay = record.barangay ?? '';
     form.municipality = record.municipality ?? '';
     form.province = record.province ?? '';
     form.contact_number = record.contact_number ?? '';
     form.is_active = record.is_active;
+    clearLocationSelection();
     showModal.value = true;
+    void hydrateLocationCascadeForEdit(record);
 };
 
 const handleSubmit = () => {
@@ -523,9 +794,18 @@ watch(
     () => runFamilyMatchCheck()
 );
 
+watch(
+    () => [form.region, form.province, form.municipality, form.barangay],
+    () => syncAddressFromLocation()
+);
+
 // clear when modal closes
 watch(showModal, (open) => {
-    if (!open) familyMatchResults.value = [];
+    if (!open) {
+        editLocationHydrateGeneration += 1;
+        familyMatchResults.value = [];
+        locationCascadeHydrating.value = false;
+    }
 });
 </script>
 
@@ -547,11 +827,12 @@ watch(showModal, (open) => {
                         />
                         <a-space>
                             <ExportButtons
+                                v-if="can('reports.export')"
                                 :pdf-route="route('reports.beneficiaries.pdf')"
                                 :excel-route="route('reports.beneficiaries.excel')"
                                 :params="{ search }"
                             />
-                            <a-button type="primary" @click="openCreate">
+                            <a-button v-if="can('beneficiaries.manage')" type="primary" @click="openCreate">
                                 <template #icon><PlusOutlined /></template>
                                 Add Beneficiary
                             </a-button>
@@ -596,8 +877,8 @@ watch(showModal, (open) => {
                                     <a-tooltip title="View Details">
                                         <a-button size="small" @click="openDetail(record)"><EyeOutlined /></a-button>
                                     </a-tooltip>
-                                    <a-button size="small" @click="openEdit(record)"><EditOutlined /></a-button>
-                                    <a-button size="small" danger @click="handleDelete(record)"><DeleteOutlined /></a-button>
+                                    <a-button v-if="can('beneficiaries.manage')" size="small" @click="openEdit(record)"><EditOutlined /></a-button>
+                                    <a-button v-if="can('beneficiaries.manage')" size="small" danger @click="handleDelete(record)"><DeleteOutlined /></a-button>
                                 </a-space>
                             </template>
                         </template>
@@ -617,9 +898,8 @@ watch(showModal, (open) => {
         >
             <a-form layout="vertical" class="mt-2">
                 <div class="grid grid-cols-2 gap-x-4">
-                    <a-form-item label="Beneficiary Code" required>
-                        <a-input v-model:value="form.beneficiary_code" />
-                        <div class="text-red-500 text-xs" v-if="form.errors.beneficiary_code">{{ form.errors.beneficiary_code }}</div>
+                    <a-form-item :label="editing ? 'Beneficiary Code' : 'Beneficiary Code (Auto-generated)'">
+                        <a-input :value="editing?.beneficiary_code ?? 'Will be generated after saving'" disabled />
                     </a-form-item>
                     <a-form-item label="Beneficiary Type">
                         <a-input v-model:value="form.beneficiary_type" />
@@ -636,7 +916,14 @@ watch(showModal, (open) => {
                         <a-input v-model:value="form.middle_name" />
                     </a-form-item>
                     <a-form-item label="Date of Birth" required>
-                        <a-input type="date" v-model:value="form.date_of_birth" class="w-full" />
+                        <a-date-picker
+                            v-model:value="form.date_of_birth"
+                            value-format="YYYY-MM-DD"
+                            format="MMM D, YYYY"
+                            class="w-full"
+                            placeholder="Select date of birth"
+                            :disabled-date="disabledFutureDate"
+                        />
                         <div class="text-red-500 text-xs" v-if="form.errors.date_of_birth">{{ form.errors.date_of_birth }}</div>
                     </a-form-item>
                     <a-form-item label="Sex" required>
@@ -654,17 +941,63 @@ watch(showModal, (open) => {
                         </a-select>
                         <div class="text-red-500 text-xs" v-if="form.errors.civil_status">{{ form.errors.civil_status }}</div>
                     </a-form-item>
+                    <a-form-item label="Region" required>
+                        <a-select
+                            v-model:value="form.region"
+                            placeholder="Select region"
+                            :options="regionOptions.map(option => ({ value: option.name, label: option.name }))"
+                            :loading="regionLoading"
+                            :disabled="!!editing && locationCascadeHydrating"
+                            show-search
+                            :filter-option="(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())"
+                            @change="handleRegionChange"
+                        />
+                        <div class="text-red-500 text-xs" v-if="form.errors.region">{{ form.errors.region }}</div>
+                    </a-form-item>
+                    <a-form-item label="Province / City" required>
+                        <a-select
+                            v-model:value="form.province"
+                            placeholder="Select province or city"
+                            :options="provinceCityOptions.map(option => ({ value: option.name, label: option.name }))"
+                            :loading="provinceCityLoading"
+                            :disabled="!form.region || (!!editing && locationCascadeHydrating)"
+                            show-search
+                            :filter-option="(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())"
+                            @change="handleProvinceCityChange"
+                        />
+                        <div class="text-red-500 text-xs" v-if="form.errors.province">{{ form.errors.province }}</div>
+                    </a-form-item>
+                    <a-form-item label="Municipality" required>
+                        <a-select
+                            v-model:value="form.municipality"
+                            placeholder="Select municipality"
+                            :options="municipalityOptions.map(option => ({ value: option.name, label: option.name }))"
+                            :loading="municipalityLoading"
+                            :disabled="!form.province || (!!editing && locationCascadeHydrating)"
+                            show-search
+                            :filter-option="(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())"
+                            @change="handleMunicipalityChange"
+                        />
+                        <div class="text-red-500 text-xs" v-if="form.errors.municipality">{{ form.errors.municipality }}</div>
+                    </a-form-item>
+                    <a-form-item label="Barangay" required>
+                        <a-select
+                            v-model:value="form.barangay"
+                            placeholder="Select barangay"
+                            :options="barangayOptions.map(option => ({ value: option.name, label: option.name }))"
+                            :loading="barangayLoading"
+                            :disabled="!form.municipality || (!!editing && locationCascadeHydrating)"
+                            show-search
+                            :filter-option="(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())"
+                        />
+                        <div class="text-red-500 text-xs" v-if="form.errors.barangay">{{ form.errors.barangay }}</div>
+                    </a-form-item>
                     <a-form-item label="Address" class="col-span-2">
-                        <a-input v-model:value="form.address" />
-                    </a-form-item>
-                    <a-form-item label="Barangay">
-                        <a-input v-model:value="form.barangay" />
-                    </a-form-item>
-                    <a-form-item label="Municipality">
-                        <a-input v-model:value="form.municipality" />
-                    </a-form-item>
-                    <a-form-item label="Province">
-                        <a-input v-model:value="form.province" />
+                        <a-input
+                            v-model:value="form.address"
+                            placeholder="Auto-filled from selected location"
+                            readonly
+                        />
                     </a-form-item>
                     <a-form-item label="Contact Number">
                         <a-input v-model:value="form.contact_number" />
@@ -819,7 +1152,7 @@ watch(showModal, (open) => {
                             </template>
                         </a-alert>
 
-                        <div class="flex justify-end mb-3">
+                        <div v-if="can('beneficiaries.manage')" class="flex justify-end mb-3">
                             <a-button type="primary" size="small" @click="openFamilyCreate" v-if="!showFamilyForm">
                                 <template #icon><PlusOutlined /></template>
                                 Add Family Member
@@ -827,7 +1160,7 @@ watch(showModal, (open) => {
                         </div>
 
                         <!-- Family Add/Edit Form -->
-                        <a-card v-if="showFamilyForm" class="mb-4" size="small"
+                        <a-card v-if="can('beneficiaries.manage') && showFamilyForm" class="mb-4" size="small"
                             :title="editingFamily ? 'Edit Family Member' : 'Add Family Member'">
                             <div class="grid grid-cols-2 gap-x-4">
                                 <a-form-item label="Relationship" required class="mb-2">
@@ -862,7 +1195,15 @@ watch(showModal, (open) => {
                                     <a-input v-model:value="familyForm.middle_name" />
                                 </a-form-item>
                                 <a-form-item label="Date of Birth" class="mb-2">
-                                    <a-input type="date" v-model:value="familyForm.date_of_birth" class="w-full" />
+                                    <a-date-picker
+                                        v-model:value="familyForm.date_of_birth"
+                                        value-format="YYYY-MM-DD"
+                                        format="MMM D, YYYY"
+                                        class="w-full"
+                                        allow-clear
+                                        placeholder="Select date of birth"
+                                        :disabled-date="disabledFutureDate"
+                                    />
                                 </a-form-item>
                                 <a-form-item label="Civil Status" class="mb-2">
                                     <a-select v-model:value="familyForm.civil_status" style="width:100%" allow-clear>
@@ -1003,8 +1344,8 @@ watch(showModal, (open) => {
                                 </template>
                                 <template v-else-if="column.key === 'actions'">
                                     <a-space>
-                                        <a-button size="small" @click="openFamilyEdit(record)"><EditOutlined /></a-button>
-                                        <a-button size="small" danger @click="deleteFamilyMember(record)"><DeleteOutlined /></a-button>
+                                        <a-button v-if="can('beneficiaries.manage')" size="small" @click="openFamilyEdit(record)"><EditOutlined /></a-button>
+                                        <a-button v-if="can('beneficiaries.manage')" size="small" danger @click="deleteFamilyMember(record)"><DeleteOutlined /></a-button>
                                     </a-space>
                                 </template>
                             </template>

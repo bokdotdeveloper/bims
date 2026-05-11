@@ -17,7 +17,7 @@ class DashboardController extends Controller
         $totalBeneficiaries = Beneficiary::count();
         $activeBeneficiaries = Beneficiary::where('is_active', true)->count();
         $totalProjects = Project::count();
-        $activeProjects = Project::where('is_active', true)->count();
+        $activeProjects = Project::query()->currentlyActiveByDates()->count();
         $totalTrainings = Training::count();
         $totalAssistance = AssistanceRecord::count();
         $totalAmountReleased = AssistanceRecord::sum('amount');
@@ -32,9 +32,9 @@ class DashboardController extends Controller
 
         // Monthly assistance amount (last 12 months)
         $monthlyAssistance = AssistanceRecord::select(
-                DB::raw("strftime('%Y-%m', date_released) as month"),
-                DB::raw('sum(amount) as total')
-            )
+            DB::raw("strftime('%Y-%m', date_released) as month"),
+            DB::raw('sum(amount) as total')
+        )
             ->whereNotNull('date_released')
             ->where('date_released', '>=', now()->subMonths(11)->startOfMonth()->toDateString())
             ->groupBy('month')
@@ -64,37 +64,36 @@ class DashboardController extends Controller
             ->latest()
             ->limit(5)
             ->get()
-            ->map(fn($r) => [
-                'recipient'      => $r->recipient_type === 'individual'
-                    ? ($r->beneficiary ? $r->beneficiary->last_name . ', ' . $r->beneficiary->first_name : '—')
+            ->map(fn ($r) => [
+                'recipient' => $r->recipient_type === 'individual'
+                    ? ($r->beneficiary ? $r->beneficiary->last_name.', '.$r->beneficiary->first_name : '—')
                     : ($r->beneficiaryGroup?->group_name ?? '—'),
-                'type'           => $r->recipient_type,
-                'assistance_type'=> $r->assistance_type,
-                'amount'         => $r->amount,
-                'date_released'  => $r->date_released?->toDateString(),
-                'project'        => $r->project?->project_name,
+                'type' => $r->recipient_type,
+                'assistance_type' => $r->assistance_type,
+                'amount' => $r->amount,
+                'date_released' => $r->date_released?->toDateString(),
+                'project' => $r->project?->project_name,
             ]);
 
         return inertia('Dashboard', [
             'stats' => [
-                'totalBeneficiaries'  => $totalBeneficiaries,
+                'totalBeneficiaries' => $totalBeneficiaries,
                 'activeBeneficiaries' => $activeBeneficiaries,
-                'totalProjects'       => $totalProjects,
-                'activeProjects'      => $activeProjects,
-                'totalTrainings'      => $totalTrainings,
-                'totalAssistance'     => $totalAssistance,
+                'totalProjects' => $totalProjects,
+                'activeProjects' => $activeProjects,
+                'totalTrainings' => $totalTrainings,
+                'totalAssistance' => $totalAssistance,
                 'totalAmountReleased' => (float) $totalAmountReleased,
-                'totalGroups'         => $totalGroups,
+                'totalGroups' => $totalGroups,
             ],
             'charts' => [
-                'assistanceByType'        => $assistanceByType,
-                'monthlyAssistance'       => $monthlyAssistance,
-                'beneficiariesBySex'      => $beneficiariesBySex,
+                'assistanceByType' => $assistanceByType,
+                'monthlyAssistance' => $monthlyAssistance,
+                'beneficiariesBySex' => $beneficiariesBySex,
                 'beneficiariesByCivilStatus' => $beneficiariesByCivilStatus,
-                'topBarangays'            => $topBarangays,
+                'topBarangays' => $topBarangays,
             ],
             'recentAssistance' => $recentAssistance,
         ]);
     }
 }
-
