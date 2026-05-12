@@ -161,7 +161,7 @@ function canOpenFeature(f: Feature): boolean {
                                 class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 sm:text-sm"
                             >
                                 <DashboardOutlined class="text-[15px]" />
-                                Dashboards
+                                Dashboard
                             </Link>
                             <Link
                                 v-else
