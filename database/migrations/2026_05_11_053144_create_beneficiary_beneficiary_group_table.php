@@ -18,7 +18,7 @@ return new class extends Migration
             $table->date('date_joined')->nullable();
             $table->timestamps();
 
-            $table->unique(['beneficiary_id', 'beneficiary_group_id']);
+            $table->unique(['beneficiary_id', 'beneficiary_group_id'], 'bbg_ben_id_grp_id_uq');
         });
     }
 

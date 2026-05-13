@@ -23,7 +23,7 @@ return new class extends Migration
             $table->foreignUuid('beneficiary_id')->constrained()->cascadeOnDelete();
             $table->foreignId('beneficiary_group_id')->constrained()->cascadeOnDelete();
             $table->date('date_joined')->nullable();
-            $table->unique(['beneficiary_id', 'beneficiary_group_id']);
+            $table->unique(['beneficiary_id', 'beneficiary_group_id'], 'bbg_ben_id_grp_id_uq');
         });
     }
 
@@ -43,7 +43,7 @@ return new class extends Migration
         Schema::table('beneficiary_beneficiary_group', function (Blueprint $table) {
             $table->dropForeign(['beneficiary_id']);
             $table->dropForeign(['beneficiary_group_id']);
-            $table->dropUnique(['beneficiary_id', 'beneficiary_group_id']);
+            $table->dropUnique('bbg_ben_id_grp_id_uq');
             $table->dropColumn(['beneficiary_id', 'beneficiary_group_id', 'date_joined']);
         });
     }
