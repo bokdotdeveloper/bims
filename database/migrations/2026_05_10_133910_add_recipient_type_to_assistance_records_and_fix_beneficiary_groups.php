@@ -13,25 +13,97 @@ return new class extends Migration
     public function up(): void
     {
         // 1. Add columns to beneficiary_groups
-        Schema::table('beneficiary_groups', function (Blueprint $table) {
-            $table->string('group_name', 255)->default('');
-            $table->string('group_type', 100)->nullable();
-            $table->unsignedInteger('total_members')->nullable();
-            $table->unsignedInteger('male_members')->nullable();
-            $table->unsignedInteger('female_members')->nullable();
-            $table->date('date_organized')->nullable();
-        });
+        if (! Schema::hasColumn('beneficiary_groups', 'group_name')) {
+            Schema::table('beneficiary_groups', function (Blueprint $table) {
+                $table->string('group_name', 255)->default('');
+                $table->string('group_type', 100)->nullable();
+                $table->unsignedInteger('total_members')->nullable();
+                $table->unsignedInteger('male_members')->nullable();
+                $table->unsignedInteger('female_members')->nullable();
+                $table->date('date_organized')->nullable();
+            });
+        }
 
-        // 2. Add recipient_type and beneficiary_group_id to assistance_records
-        Schema::table('assistance_records', function (Blueprint $table) {
-            $table->string('recipient_type', 20)->default('individual')->after('id');
-            $table->unsignedBigInteger('beneficiary_group_id')->nullable()->after('recipient_type');
-            $table->foreign('beneficiary_group_id')->references('id')->on('beneficiary_groups')->nullOnDelete();
-        });
+        $driver = Schema::getConnection()->getDriverName();
 
-        // 3. For SQLite: recreate assistance_records to make beneficiary_id nullable
-        // SQLite doesn't support ALTER COLUMN, so we use a table rebuild approach.
+        if ($driver === 'sqlite') {
+            $this->upgradeAssistanceRecordsSqlite();
+
+            return;
+        }
+
+        // MySQL, PostgreSQL, etc.: ALTER instead of SQLite table rebuild.
+        if (! Schema::hasColumn('assistance_records', 'recipient_type')) {
+            Schema::table('assistance_records', function (Blueprint $table) {
+                $table->string('recipient_type', 20)->default('individual')->after('id');
+                $table->unsignedBigInteger('beneficiary_group_id')->nullable()->after('recipient_type');
+                $table->foreign('beneficiary_group_id')->references('id')->on('beneficiary_groups')->nullOnDelete();
+            });
+        }
+
+        if ($this->assistanceBeneficiaryIdMustBecomeNullable()) {
+            Schema::table('assistance_records', function (Blueprint $table) {
+                $table->dropForeign(['beneficiary_id']);
+            });
+
+            Schema::table('assistance_records', function (Blueprint $table) {
+                $table->foreignUuid('beneficiary_id')->nullable()->change();
+            });
+
+            Schema::table('assistance_records', function (Blueprint $table) {
+                $table->foreign('beneficiary_id')->references('id')->on('beneficiaries')->cascadeOnDelete();
+            });
+        }
+    }
+
+    /**
+     * True when beneficiary_id is still NOT NULL (e.g. after a failed run that stopped before this step).
+     */
+    private function assistanceBeneficiaryIdMustBecomeNullable(): bool
+    {
+        $connection = Schema::getConnection();
+        $driver = $connection->getDriverName();
+
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $row = $connection->selectOne(
+                'SELECT IS_NULLABLE FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+                ['assistance_records', 'beneficiary_id']
+            );
+
+            return ! $row || $row->IS_NULLABLE === 'NO';
+        }
+
+        if ($driver === 'pgsql') {
+            $row = $connection->selectOne(
+                'SELECT is_nullable FROM information_schema.columns
+                 WHERE table_schema = ANY (current_schemas(false)) AND table_name = ? AND column_name = ?',
+                ['assistance_records', 'beneficiary_id']
+            );
+
+            return ! $row || $row->is_nullable === 'NO';
+        }
+
+        // Other drivers: assume migration not yet applied.
+        return true;
+    }
+
+    /**
+     * SQLite: recreate assistance_records (no ALTER COLUMN support).
+     */
+    private function upgradeAssistanceRecordsSqlite(): void
+    {
+        if (! Schema::hasColumn('assistance_records', 'recipient_type')) {
+            Schema::table('assistance_records', function (Blueprint $table) {
+                $table->string('recipient_type', 20)->default('individual')->after('id');
+                $table->unsignedBigInteger('beneficiary_group_id')->nullable()->after('recipient_type');
+                $table->foreign('beneficiary_group_id')->references('id')->on('beneficiary_groups')->nullOnDelete();
+            });
+        }
+
         DB::statement('PRAGMA foreign_keys = OFF');
+
+        DB::statement('DROP TABLE IF EXISTS assistance_records_new');
 
         DB::statement('
             CREATE TABLE assistance_records_new (
@@ -73,7 +145,19 @@ return new class extends Migration
     {
         Schema::table('assistance_records', function (Blueprint $table) {
             $table->dropForeign(['beneficiary_group_id']);
+            $table->dropForeign(['beneficiary_id']);
+        });
+
+        Schema::table('assistance_records', function (Blueprint $table) {
             $table->dropColumn(['recipient_type', 'beneficiary_group_id']);
+        });
+
+        Schema::table('assistance_records', function (Blueprint $table) {
+            $table->foreignUuid('beneficiary_id')->nullable(false)->change();
+        });
+
+        Schema::table('assistance_records', function (Blueprint $table) {
+            $table->foreign('beneficiary_id')->references('id')->on('beneficiaries')->cascadeOnDelete();
         });
 
         Schema::table('beneficiary_groups', function (Blueprint $table) {
