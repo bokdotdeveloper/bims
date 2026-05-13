@@ -1,5 +1,7 @@
 <?php
 
+// Portable schema only (MySQL/MariaDB/PostgreSQL/SQLite). No PRAGMA — deploy this file to prod or migrations will keep failing on MySQL.
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
