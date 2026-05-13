@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Project;
+use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class ProjectFactory extends Factory
@@ -20,15 +21,26 @@ class ProjectFactory extends Factory
             'Kapital Access for Young Agripreneurs (KAYA)',
         ];
 
-        $start = \fake()->dateTimeBetween('-3 years', '-6 months');
+        $fundSources = ['DSWD Central Office', 'LGU', 'DSWD Region VI', 'Other'];
+
+        $startTs = random_int(strtotime('-3 years'), strtotime('-6 months'));
+        $start = (new DateTimeImmutable)->setTimestamp($startTs);
+
+        $endDate = null;
+        if (random_int(1, 100) <= 40) {
+            $endTs = random_int($startTs, time());
+            $endDate = (new DateTimeImmutable)->setTimestamp($endTs)->format('Y-m-d');
+        }
+
+        $codeSuffix = strtoupper(bin2hex(random_bytes(3)));
 
         return [
-            'project_name' => \fake()->randomElement($projects),
-            'project_code' => 'SLP-'.strtoupper(\fake()->unique()->bothify('??###')),
-            'description' => \fake()->sentence(12),
+            'project_name' => $projects[array_rand($projects)],
+            'project_code' => 'SLP-'.$codeSuffix,
+            'description' => 'Seeded demo project for testing and development.',
             'date_started' => $start->format('Y-m-d'),
-            'date_ended' => \fake()->optional(0.4)->dateTimeBetween($start, 'now')?->format('Y-m-d'),
-            'fund_source' => \fake()->randomElement(['DSWD Central Office', 'LGU', 'DSWD Region VI', 'Other']),
+            'date_ended' => $endDate,
+            'fund_source' => $fundSources[array_rand($fundSources)],
         ];
     }
 }
