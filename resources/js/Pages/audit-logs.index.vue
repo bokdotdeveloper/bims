@@ -132,18 +132,18 @@ const diffKeys = computed(() => {
         </template>
 
         <div class="py-6">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-4">
+            <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-3 sm:p-4">
 
                     <!-- Filters -->
-                    <div class="flex flex-wrap gap-2 mb-4">
+                    <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                         <a-input-search
                             v-model:value="search"
+                            class="w-full sm:!w-[220px]"
                             placeholder="Search user, action, IP..."
-                            style="width: 220px"
                             allow-clear
                         />
-                        <a-select v-model:value="filterAction" placeholder="All actions" style="width: 160px" allow-clear>
+                        <a-select v-model:value="filterAction" placeholder="All actions" class="w-full sm:!w-[160px]" allow-clear>
                             <a-select-option value="created">Created</a-select-option>
                             <a-select-option value="updated">Updated</a-select-option>
                             <a-select-option value="deleted">Deleted</a-select-option>
@@ -152,7 +152,7 @@ const diffKeys = computed(() => {
                             <a-select-option value="permissions_updated">Permissions updated</a-select-option>
                             <a-select-option value="roles_updated">Roles updated</a-select-option>
                         </a-select>
-                        <a-select v-model:value="filterModel" placeholder="All models" style="width: 170px" allow-clear>
+                        <a-select v-model:value="filterModel" placeholder="All models" class="w-full sm:!w-[170px]" allow-clear>
                             <a-select-option v-for="m in modelTypes" :key="m" :value="m">
                                 {{ shortModelType(m) }}
                             </a-select-option>
@@ -163,7 +163,7 @@ const diffKeys = computed(() => {
                             format="MMM D, YYYY"
                             allow-clear
                             placeholder="Date from"
-                            style="width: 145px"
+                            class="w-full sm:!w-[145px]"
                             :disabled-date="disabledFutureDate"
                         />
                         <a-date-picker
@@ -172,10 +172,10 @@ const diffKeys = computed(() => {
                             format="MMM D, YYYY"
                             allow-clear
                             placeholder="Date to"
-                            style="width: 145px"
+                            class="w-full sm:!w-[145px]"
                             :disabled-date="disabledFutureDate"
                         />
-                        <span class="text-gray-400 text-xs self-center ml-auto">
+                        <span class="text-xs text-gray-400 sm:ml-auto sm:self-center">
                             {{ logs.total }} record(s) found
                         </span>
                     </div>

@@ -9,9 +9,11 @@ import { message, Modal } from 'ant-design-vue';
 import { formatDate } from '@/composables/useDateFormat';
 import { disabledFutureDate } from '@/composables/useDisabledFutureDate';
 import { useAuthorization } from '@/composables/useAuthorization';
+import { useResponsiveDrawerWidth } from '@/composables/useResponsiveDrawerWidth';
 import axios from 'axios';
 
 const { can } = useAuthorization();
+const participantsDrawerWidth = useResponsiveDrawerWidth(700);
 
 interface Project {
     id: string;
@@ -227,33 +229,33 @@ const completionColors: Record<string, string> = { Completed: 'green', Incomplet
         </template>
 
         <div class="py-6">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-4">
-                    <div class="flex justify-between items-center mb-4">
-                        <a-space>
+            <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-3 sm:p-4">
+                    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                        <div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap">
                             <a-input-search
                                 v-model:value="search"
+                                class="w-full sm:!w-[250px]"
                                 placeholder="Search training..."
-                                style="width: 250px"
                                 allow-clear
                             />
                             <a-select
                                 v-model:value="filterProject"
                                 placeholder="Filter by project"
-                                style="width: 220px"
+                                class="w-full sm:!w-[220px]"
                                 allow-clear
                             >
                                 <a-select-option v-for="p in projects" :key="p.id" :value="p.id">{{ p.project_name }}</a-select-option>
                             </a-select>
-                        </a-space>
-                        <a-space>
+                        </div>
+                        <a-space wrap class="w-full justify-end sm:w-auto">
                             <ExportButtons
                                 v-if="can('reports.export')"
                                 :pdf-route="route('reports.trainings.pdf')"
                                 :excel-route="route('reports.trainings.excel')"
                                 :params="{ search, project_id: filterProject }"
                             />
-                            <a-button v-if="can('trainings.manage')" type="primary" @click="openCreate">
+                            <a-button v-if="can('trainings.manage')" type="primary" class="w-full sm:!w-auto" @click="openCreate">
                                 <template #icon><PlusOutlined /></template>
                                 Add Training
                             </a-button>
@@ -339,9 +341,10 @@ const completionColors: Record<string, string> = { Completed: 'green', Incomplet
         <!-- Participants Drawer -->
         <a-drawer
             v-model:open="drawerVisible"
+            root-class-name="bims-drawer-responsive"
             :title="`Participants — ${drawerTraining?.training_tile ?? ''}`"
             placement="right"
-            width="700"
+            :width="participantsDrawerWidth"
             destroy-on-close
         >
             <div v-if="can('trainings.manage')" class="mb-3 flex justify-end">
@@ -354,8 +357,8 @@ const completionColors: Record<string, string> = { Completed: 'green', Incomplet
             <!-- Add form -->
             <a-card v-if="can('trainings.manage') && showAddForm" class="mb-4" size="small" title="Add a Participant">
                 <a-form layout="vertical">
-                    <div class="grid grid-cols-2 gap-x-4">
-                        <a-form-item label="Beneficiary" class="col-span-2" required>
+                    <div class="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                        <a-form-item label="Beneficiary" class="col-span-1 sm:col-span-2" required>
                             <a-select
                                 v-model:value="addForm.beneficiary_id"
                                 show-search
@@ -408,6 +411,7 @@ const completionColors: Record<string, string> = { Completed: 'green', Incomplet
                     :pagination="false"
                     row-key="id"
                     size="small"
+                    :scroll="{ x: 'max-content' }"
                 >
                     <template #bodyCell="{ column, record }">
                         <template v-if="column.key === 'name'">

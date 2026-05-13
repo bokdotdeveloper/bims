@@ -166,32 +166,32 @@ const onRecipientTypeChange = () => {
         </template>
 
         <div class="py-6">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-4">
-                    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-                        <a-space wrap>
+            <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-3 sm:p-4">
+                    <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+                        <div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap">
                             <a-input-search
                                 v-model:value="search"
+                                class="w-full sm:!w-[230px]"
                                 placeholder="Search by recipient..."
-                                style="width: 230px"
                                 allow-clear
                             />
-                            <a-select v-model:value="filterType" placeholder="All types" style="width: 160px" allow-clear>
+                            <a-select v-model:value="filterType" placeholder="All types" class="w-full sm:!w-[160px]" allow-clear>
                                 <a-select-option value="individual"><UserOutlined /> Individual</a-select-option>
                                 <a-select-option value="group"><TeamOutlined /> Group</a-select-option>
                             </a-select>
-                            <a-select v-model:value="filterProject" placeholder="Filter by project" style="width: 200px" allow-clear>
+                            <a-select v-model:value="filterProject" placeholder="Filter by project" class="w-full sm:!w-[200px]" allow-clear>
                                 <a-select-option v-for="p in projects" :key="p.id" :value="p.id">{{ p.project_name }}</a-select-option>
                             </a-select>
-                        </a-space>
-                        <a-space>
+                        </div>
+                        <a-space wrap class="w-full justify-end lg:w-auto">
                             <ExportButtons
                                 v-if="can('reports.export')"
                                 :pdf-route="route('reports.assistance.pdf')"
                                 :excel-route="route('reports.assistance.excel')"
                                 :params="{ search, project_id: filterProject, recipient_type: filterType }"
                             />
-                            <a-button v-if="can('assistance.manage')" type="primary" @click="openCreate">
+                            <a-button v-if="can('assistance.manage')" type="primary" class="w-full sm:!w-auto" @click="openCreate">
                                 <template #icon><PlusOutlined /></template>
                                 Add Record
                             </a-button>

@@ -248,16 +248,16 @@ const isProtectedRole = (name: string) => name === 'Super Admin';
         </template>
 
         <div class="py-6">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-4">
-                    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+            <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-3 sm:p-4">
+                    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                         <a-input-search
                             v-model:value="search"
+                            class="w-full sm:!w-[280px]"
                             placeholder="Search roles..."
-                            style="width: 280px"
                             allow-clear
                         />
-                        <a-button type="primary" @click="openCreate">
+                        <a-button type="primary" class="w-full sm:!w-auto" @click="openCreate">
                             <template #icon><PlusOutlined /></template>
                             Add Role
                         </a-button>

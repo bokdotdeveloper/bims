@@ -356,8 +356,9 @@ const navTriggerInactiveClass = `${navTriggerBase} border-transparent text-gray-
                                 </div>
                             </div>
 
-                            <!-- Hamburger -->
-                            <div class="-me-2 flex items-center sm:hidden">
+                            <!-- Mobile: notifications + menu -->
+                            <div class="-me-2 flex items-center gap-1 sm:hidden">
+                                <NotificationBell />
                                 <button
                                     class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-900 focus:text-gray-500 dark:focus:text-gray-400 transition duration-150 ease-in-out"
                                     @click="showingNavigationDropdown = ! showingNavigationDropdown">
@@ -588,13 +589,15 @@ const navTriggerInactiveClass = `${navTriggerBase} border-transparent text-gray-
 
                 <!-- Page Heading -->
                 <header v-if="$slots.header" class="bg-white dark:bg-gray-800 shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                        <slot name="header"/>
+                    <div class="max-w-7xl mx-auto min-w-0 py-5 px-3 sm:py-6 sm:px-6 lg:px-8">
+                        <div class="min-w-0">
+                            <slot name="header"/>
+                        </div>
                     </div>
                 </header>
 
                 <!-- Page Content -->
-                <main>
+                <main class="min-w-0">
                     <slot/>
                 </main>
             </div>

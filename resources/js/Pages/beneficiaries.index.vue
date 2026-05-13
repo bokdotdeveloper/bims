@@ -9,9 +9,11 @@ import { message, Modal } from 'ant-design-vue';
 import { formatDate } from '@/composables/useDateFormat';
 import { disabledFutureDate } from '@/composables/useDisabledFutureDate';
 import { useAuthorization } from '@/composables/useAuthorization';
+import { useResponsiveDrawerWidth } from '@/composables/useResponsiveDrawerWidth';
 import axios from 'axios';
 
 const { can } = useAuthorization();
+const detailDrawerWidth = useResponsiveDrawerWidth(750);
 
 interface Beneficiary {
     id: string;
@@ -816,23 +818,23 @@ watch(showModal, (open) => {
         </template>
 
         <div class="py-6">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-4">
-                    <div class="flex justify-between items-center mb-4">
+            <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-3 sm:p-4">
+                    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <a-input-search
                             v-model:value="search"
+                            class="w-full sm:!w-[300px]"
                             placeholder="Search by name or code..."
-                            style="width: 300px"
                             allow-clear
                         />
-                        <a-space>
+                        <a-space wrap class="w-full justify-end sm:w-auto">
                             <ExportButtons
                                 v-if="can('reports.export')"
                                 :pdf-route="route('reports.beneficiaries.pdf')"
                                 :excel-route="route('reports.beneficiaries.excel')"
                                 :params="{ search }"
                             />
-                            <a-button v-if="can('beneficiaries.manage')" type="primary" @click="openCreate">
+                            <a-button v-if="can('beneficiaries.manage')" type="primary" class="w-full sm:!w-auto" @click="openCreate">
                                 <template #icon><PlusOutlined /></template>
                                 Add Beneficiary
                             </a-button>
@@ -1042,8 +1044,9 @@ watch(showModal, (open) => {
         <!-- Detail Drawer -->
         <a-drawer
             v-model:open="detailVisible"
+            root-class-name="bims-drawer-responsive"
             placement="right"
-            width="750"
+            :width="detailDrawerWidth"
             destroy-on-close
         >
             <template #title>
@@ -1074,6 +1077,7 @@ watch(showModal, (open) => {
                             :pagination="{ pageSize: 10, size: 'small' }"
                             row-key="id"
                             size="small"
+                            :scroll="{ x: 'max-content' }"
                         >
                             <template #bodyCell="{ column, record }">
                                 <template v-if="column.key === 'amount'">
@@ -1116,6 +1120,7 @@ watch(showModal, (open) => {
                             :pagination="false"
                             row-key="id"
                             size="small"
+                            :scroll="{ x: 'max-content' }"
                         >
                             <template #bodyCell="{ column, record }">
                                 <template v-if="column.key === 'group_type'">
@@ -1162,7 +1167,7 @@ watch(showModal, (open) => {
                         <!-- Family Add/Edit Form -->
                         <a-card v-if="can('beneficiaries.manage') && showFamilyForm" class="mb-4" size="small"
                             :title="editingFamily ? 'Edit Family Member' : 'Add Family Member'">
-                            <div class="grid grid-cols-2 gap-x-4">
+                            <div class="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
                                 <a-form-item label="Relationship" required class="mb-2">
                                     <a-select v-model:value="familyForm.relationship" style="width:100%"
                                         :status="familyFormErrors.relationship ? 'error' : ''">
@@ -1321,6 +1326,7 @@ watch(showModal, (open) => {
                             :pagination="false"
                             row-key="id"
                             size="small"
+                            :scroll="{ x: 'max-content' }"
                         >
                             <template #bodyCell="{ column, record }">
                                 <template v-if="column.key === 'name'">

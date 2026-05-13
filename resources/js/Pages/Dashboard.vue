@@ -210,10 +210,10 @@ const recentColumns = [
         </template>
 
         <div class="py-6">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            <div class="max-w-7xl mx-auto space-y-6 px-3 sm:px-6 lg:px-8">
 
                 <!-- Summary Cards -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 flex items-center gap-3">
                         <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400 text-lg leading-none"><UserOutlined /></div>
                         <div>
@@ -288,16 +288,18 @@ const recentColumns = [
                         <div class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Assistance by Type (Total Amount)</div>
                         <apexchart :key="`bytype-${chartKey}`" type="bar" height="250" :options="byTypeOptions" :series="byTypeSeries" />
                     </div>
-                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-4 min-w-0">
                         <div class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Recent Assistance Records</div>
-                        <a-table
-                            :data-source="recentAssistance"
-                            :columns="recentColumns"
-                            :pagination="false"
-                            size="small"
-                            row-key="recipient"
-                            :class="isDark ? 'ant-table-dark' : ''"
-                        >
+                        <div class="w-full overflow-x-auto">
+                            <a-table
+                                :data-source="recentAssistance"
+                                :columns="recentColumns"
+                                :pagination="false"
+                                size="small"
+                                row-key="recipient"
+                                :scroll="{ x: 'max-content' }"
+                                :class="isDark ? 'ant-table-dark' : ''"
+                            >
                             <template #bodyCell="{ column, record }">
                                 <template v-if="column.key === 'recipient'">
                                     <div class="font-medium text-xs dark:text-gray-200">{{ record.recipient }}</div>
@@ -313,7 +315,8 @@ const recentColumns = [
                                     <span class="text-xs text-gray-500 dark:text-gray-400">{{ record.project ?? '—' }}</span>
                                 </template>
                             </template>
-                        </a-table>
+                            </a-table>
+                        </div>
                     </div>
                 </div>
 

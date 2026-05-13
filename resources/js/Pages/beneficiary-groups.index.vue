@@ -8,9 +8,11 @@ import { message, Modal } from 'ant-design-vue';
 import { formatDate } from '@/composables/useDateFormat';
 import { disabledFutureDate } from '@/composables/useDisabledFutureDate';
 import { useAuthorization } from '@/composables/useAuthorization';
+import { useResponsiveDrawerWidth } from '@/composables/useResponsiveDrawerWidth';
 import axios from 'axios';
 
 const { can } = useAuthorization();
+const membersDrawerWidth = useResponsiveDrawerWidth(700);
 
 interface BeneficiaryGroup {
     id: number;
@@ -198,20 +200,20 @@ const removeMember = (beneficiaryId: string) => {
         </template>
 
         <div class="py-6">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-4">
+            <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-3 sm:p-4">
                     <div class="mb-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
                         ℹ️ Individuals linked to a group will have their assistance participation tracked at the <strong>group level</strong> and will be excluded from individual assistance records.
                     </div>
-                    <div class="flex justify-between items-center mb-4">
+                    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <a-input-search
                             v-model:value="search"
+                            class="w-full sm:!w-[300px]"
                             placeholder="Search groups..."
-                            style="width: 300px"
                             allow-clear
                         />
-                        <a-space>
-                            <a-button v-if="can('groups.manage')" type="primary" @click="openCreate">
+                        <a-space wrap class="w-full justify-end sm:w-auto">
+                            <a-button v-if="can('groups.manage')" type="primary" class="w-full sm:!w-auto" @click="openCreate">
                                 <template #icon><PlusOutlined /></template>
                                 Add Group
                             </a-button>
@@ -283,9 +285,10 @@ const removeMember = (beneficiaryId: string) => {
         <!-- Members Drawer -->
         <a-drawer
             v-model:open="drawerVisible"
+            root-class-name="bims-drawer-responsive"
             :title="`Members — ${drawerGroup?.group_name ?? ''}`"
             placement="right"
-            width="700"
+            :width="membersDrawerWidth"
             destroy-on-close
         >
             <div class="mb-3">
@@ -306,8 +309,8 @@ const removeMember = (beneficiaryId: string) => {
             <!-- Add form -->
             <a-card v-if="can('groups.manage') && showAddForm" class="mb-4" size="small" title="Add a Member">
                 <a-form layout="vertical">
-                    <div class="grid grid-cols-2 gap-x-4">
-                        <a-form-item label="Beneficiary" class="col-span-2" required>
+                    <div class="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                        <a-form-item label="Beneficiary" class="col-span-1 sm:col-span-2" required>
                             <a-select
                                 v-model:value="addForm.beneficiary_id"
                                 show-search
@@ -354,6 +357,7 @@ const removeMember = (beneficiaryId: string) => {
                     :pagination="false"
                     row-key="id"
                     size="small"
+                    :scroll="{ x: 'max-content' }"
                 >
                     <template #bodyCell="{ column, record }">
                         <template v-if="column.key === 'name'">

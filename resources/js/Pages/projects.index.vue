@@ -9,9 +9,11 @@ import { message, Modal } from 'ant-design-vue';
 import { formatDate } from '@/composables/useDateFormat';
 import { uppercaseCode } from '@/composables/useUppercaseCode';
 import { useAuthorization } from '@/composables/useAuthorization';
+import { useResponsiveDrawerWidth } from '@/composables/useResponsiveDrawerWidth';
 import axios from 'axios';
 
 const { can } = useAuthorization();
+const enrollmentDrawerWidth = useResponsiveDrawerWidth(760);
 
 interface Project {
     id: string;
@@ -319,18 +321,18 @@ function projectLifecycle(record: Project): { label: string; color: string } {
         </template>
 
         <div class="py-6">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-4">
-                    <div class="flex justify-between items-center mb-4">
-                        <a-input-search v-model:value="search" placeholder="Search projects..." style="width: 300px" allow-clear />
-                        <a-space>
+            <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-xl sm:rounded-lg p-3 sm:p-4">
+                    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <a-input-search v-model:value="search" class="w-full sm:!w-[300px]" placeholder="Search projects..." allow-clear />
+                        <a-space wrap class="w-full justify-end sm:w-auto">
                             <ExportButtons
                                 v-if="can('reports.export')"
                                 :pdf-route="route('reports.projects.pdf')"
                                 :excel-route="route('reports.projects.excel')"
                                 :params="{ search }"
                             />
-                            <a-button v-if="can('projects.manage')" type="primary" @click="openCreate">
+                            <a-button v-if="can('projects.manage')" type="primary" class="w-full sm:!w-auto" @click="openCreate">
                                 <template #icon><PlusOutlined /></template>
                                 Add Project
                             </a-button>
@@ -431,9 +433,10 @@ function projectLifecycle(record: Project): { label: string; color: string } {
         <!-- Enrollment drawer: individuals + beneficiary groups -->
         <a-drawer
             v-model:open="drawerVisible"
+            root-class-name="bims-drawer-responsive"
             :title="`Enrollment — ${drawerProject?.project_name ?? ''}`"
             placement="right"
-            width="760"
+            :width="enrollmentDrawerWidth"
             destroy-on-close
         >
             <a-tabs v-model:active-key="drawerTab">
@@ -447,8 +450,8 @@ function projectLifecycle(record: Project): { label: string; color: string } {
 
                     <a-card v-if="can('projects.manage') && showAddForm" class="mb-4" size="small" title="Enroll an individual">
                         <a-form layout="vertical">
-                            <div class="grid grid-cols-2 gap-x-4">
-                                <a-form-item label="Beneficiary" class="col-span-2" required>
+                            <div class="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                                <a-form-item label="Beneficiary" class="col-span-1 sm:col-span-2" required>
                                     <a-select
                                         v-model:value="addForm.beneficiary_id"
                                         show-search
@@ -485,7 +488,7 @@ function projectLifecycle(record: Project): { label: string; color: string } {
                                         <a-select-option value="Transferred">Transferred</a-select-option>
                                     </a-select>
                                 </a-form-item>
-                                <a-form-item label="Remarks" class="col-span-2">
+                                <a-form-item label="Remarks" class="col-span-1 sm:col-span-2">
                                     <a-textarea v-model:value="addForm.remarks" :rows="2" />
                                 </a-form-item>
                             </div>
@@ -503,6 +506,7 @@ function projectLifecycle(record: Project): { label: string; color: string } {
                             :pagination="false"
                             row-key="id"
                             size="small"
+                            :scroll="{ x: 'max-content' }"
                         >
                             <template #bodyCell="{ column, record }">
                                 <template v-if="column.key === 'name'">
@@ -537,8 +541,8 @@ function projectLifecycle(record: Project): { label: string; color: string } {
 
                     <a-card v-if="can('projects.manage') && showGroupAddForm" class="mb-4" size="small" title="Enroll a beneficiary group">
                         <a-form layout="vertical">
-                            <div class="grid grid-cols-2 gap-x-4">
-                                <a-form-item label="Group" class="col-span-2" required>
+                            <div class="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                                <a-form-item label="Group" class="col-span-1 sm:col-span-2" required>
                                     <a-select
                                         v-model:value="groupAddForm.beneficiary_group_id"
                                         show-search
@@ -575,7 +579,7 @@ function projectLifecycle(record: Project): { label: string; color: string } {
                                         <a-select-option value="Transferred">Transferred</a-select-option>
                                     </a-select>
                                 </a-form-item>
-                                <a-form-item label="Remarks" class="col-span-2">
+                                <a-form-item label="Remarks" class="col-span-1 sm:col-span-2">
                                     <a-textarea v-model:value="groupAddForm.remarks" :rows="2" />
                                 </a-form-item>
                             </div>
@@ -593,6 +597,7 @@ function projectLifecycle(record: Project): { label: string; color: string } {
                             :pagination="false"
                             row-key="id"
                             size="small"
+                            :scroll="{ x: 'max-content' }"
                         >
                             <template #bodyCell="{ column, record }">
                                 <template v-if="column.key === 'group_name'">
