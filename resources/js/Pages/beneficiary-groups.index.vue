@@ -183,7 +183,7 @@ const removeMember = (beneficiaryId: string) => {
         okText: 'Remove',
         okType: 'danger',
         onOk() {
-            router.delete(route('beneficiary-groups.members.destroy', { group: drawerGroup.value!.id, beneficiary: beneficiaryId }), {
+            router.delete(route('beneficiary-groups.members.destroy', { beneficiary_group: drawerGroup.value!.id, beneficiary: beneficiaryId }), {
                 onSuccess: () => loadMembers(),
             });
         },
