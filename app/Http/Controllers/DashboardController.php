@@ -30,14 +30,20 @@ class DashboardController extends Controller
             ->limit(8)
             ->get();
 
-        // Monthly assistance amount (last 12 months)
+        // Monthly assistance amount (last 12 months) — strftime is SQLite-only; MySQL uses DATE_FORMAT.
+        $monthKeyExpr = match (DB::connection()->getDriverName()) {
+            'sqlite' => "strftime('%Y-%m', date_released)",
+            'pgsql' => "to_char(date_released, 'YYYY-MM')",
+            default => "DATE_FORMAT(date_released, '%Y-%m')",
+        };
+
         $monthlyAssistance = AssistanceRecord::select(
-            DB::raw("strftime('%Y-%m', date_released) as month"),
+            DB::raw("{$monthKeyExpr} as month"),
             DB::raw('sum(amount) as total')
         )
             ->whereNotNull('date_released')
             ->where('date_released', '>=', now()->subMonths(11)->startOfMonth()->toDateString())
-            ->groupBy('month')
+            ->groupBy(DB::raw($monthKeyExpr))
             ->orderBy('month')
             ->get();
 
