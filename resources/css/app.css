@@ -27,9 +27,40 @@
     }
 }
 
-/* Ant Design tables inside horizontal scroll wrapper */
-.ant-table-responsive-scroll .ant-table {
-    min-width: max-content;
+/* Touch-friendly horizontal scroll for all Ant tables (including drawers) */
+.ant-table-content,
+.ant-table-body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+
+/* Ant Design tables: single scroll container, touch-friendly horizontal pan */
+.ant-table-responsive-scroll .ant-table-content {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+
+.ant-table-responsive-scroll .ant-table-body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+
+/* Fade hint when more columns are off-screen (mobile) */
+.ant-table-responsive-scroll--hint::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 3;
+    width: 28px;
+    height: calc(100% - 2.5rem);
+    pointer-events: none;
+    background: linear-gradient(to right, transparent, rgb(255 255 255 / 0.92));
+}
+
+.dark .ant-table-responsive-scroll--hint::after {
+    background: linear-gradient(to right, transparent, rgb(31 41 55 / 0.92));
 }
 
 /* Drawers: edge-to-edge on phones + scrollable tab bar */

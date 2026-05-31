@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['training_tile', 'training_type', 'facilitator', 'venue', 'date_conducted', 'duration_hours', 'project_id'])]
+#[Fillable(['training_title', 'training_type', 'facilitator', 'venue', 'date_conducted', 'duration_hours', 'project_id'])]
 #[Table(key: 'id', keyType: 'string', incrementing: false)]
 class Training extends Model
 {

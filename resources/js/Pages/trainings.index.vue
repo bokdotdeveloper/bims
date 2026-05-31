@@ -22,7 +22,7 @@ interface Project {
 
 interface Training {
     id: string;
-    training_tile: string;
+    training_title: string;
     training_type: string;
     facilitator: string;
     venue: string;
@@ -69,7 +69,7 @@ const addForm = useForm({ beneficiary_id: null as string | null, date_attended: 
 const showAddForm = ref(false);
 
 const form = useForm({
-    training_tile: '',
+    training_title: '',
     training_type: '',
     facilitator: '',
     venue: '',
@@ -79,7 +79,7 @@ const form = useForm({
 });
 
 const columns = [
-    { title: 'Title', dataIndex: 'training_tile', key: 'training_tile' },
+    { title: 'Title', dataIndex: 'training_title', key: 'training_title' },
     { title: 'Type', dataIndex: 'training_type', key: 'training_type', width: 120 },
     { title: 'Facilitator', dataIndex: 'facilitator', key: 'facilitator' },
     { title: 'Venue', dataIndex: 'venue', key: 'venue' },
@@ -134,7 +134,7 @@ const openCreate = () => {
 
 const openEdit = (record: Training) => {
     editing.value = record;
-    form.training_tile = record.training_tile;
+    form.training_title = record.training_title;
     form.training_type = record.training_type ?? '';
     form.facilitator = record.facilitator ?? '';
     form.venue = record.venue ?? '';
@@ -159,7 +159,7 @@ const handleSubmit = () => {
 const handleDelete = (record: Training) => {
     Modal.confirm({
         title: 'Delete Training',
-        content: `Are you sure you want to delete "${record.training_tile}"?`,
+        content: `Are you sure you want to delete "${record.training_title}"?`,
         okType: 'danger',
         onOk() {
             router.delete(route('trainings.destroy', record.id), {
@@ -303,8 +303,8 @@ const completionColors: Record<string, string> = { Completed: 'green', Incomplet
             <a-form layout="vertical" class="mt-2">
                 <div class="grid grid-cols-2 gap-x-4">
                     <a-form-item label="Training Title" class="col-span-2" required>
-                        <a-input v-model:value="form.training_tile" />
-                        <div class="text-red-500 text-xs" v-if="form.errors.training_tile">{{ form.errors.training_tile }}</div>
+                        <a-input v-model:value="form.training_title" />
+                        <div class="text-red-500 text-xs" v-if="form.errors.training_title">{{ form.errors.training_title }}</div>
                     </a-form-item>
                     <a-form-item label="Training Type">
                         <a-input v-model:value="form.training_type" />
@@ -342,7 +342,7 @@ const completionColors: Record<string, string> = { Completed: 'green', Incomplet
         <a-drawer
             v-model:open="drawerVisible"
             root-class-name="bims-drawer-responsive"
-            :title="`Participants — ${drawerTraining?.training_tile ?? ''}`"
+            :title="`Participants — ${drawerTraining?.training_title ?? ''}`"
             placement="right"
             :width="participantsDrawerWidth"
             destroy-on-close

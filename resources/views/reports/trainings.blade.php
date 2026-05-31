@@ -19,7 +19,7 @@
         @foreach($trainings as $i => $t)
         <tr>
             <td>{{ $i + 1 }}</td>
-            <td>{{ $t->training_tile }}</td>
+            <td>{{ $t->training_title }}</td>
             <td>{{ $t->training_type }}</td>
             <td>{{ $t->facilitator }}</td>
             <td>{{ $t->venue }}</td>

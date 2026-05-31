@@ -96,7 +96,7 @@ class ReportController extends Controller
         $query = Training::query()->with('project')->withCount('beneficiaries');
         if ($request->filled('search')) {
             $q = $request->search;
-            $query->where(fn ($q2) => $q2->where('training_tile', 'like', "%$q%")->orWhere('facilitator', 'like', "%$q%"));
+            $query->where(fn ($q2) => $q2->where('training_title', 'like', "%$q%")->orWhere('facilitator', 'like', "%$q%"));
         }
         if ($request->filled('project_id')) {
             $query->where('project_id', $request->project_id);

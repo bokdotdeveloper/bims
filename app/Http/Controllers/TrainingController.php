@@ -17,7 +17,7 @@ class TrainingController extends Controller
         if ($request->filled('search')) {
             $q = $request->search;
             $query->where(function ($q2) use ($q) {
-                $q2->where('training_tile', 'like', "%$q%")
+                $q2->where('training_title', 'like', "%$q%")
                     ->orWhere('facilitator', 'like', "%$q%");
             });
         }
@@ -36,7 +36,7 @@ class TrainingController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'training_tile' => 'required|string|max:255',
+            'training_title' => 'required|string|max:255',
             'training_type' => 'nullable|string|max:100',
             'facilitator' => 'nullable|string|max:255',
             'venue' => 'nullable|string|max:255',
@@ -62,7 +62,7 @@ class TrainingController extends Controller
         $training = Training::findOrFail($id);
 
         $validated = $request->validate([
-            'training_tile' => 'required|string|max:255',
+            'training_title' => 'required|string|max:255',
             'training_type' => 'nullable|string|max:100',
             'facilitator' => 'nullable|string|max:255',
             'venue' => 'nullable|string|max:255',
