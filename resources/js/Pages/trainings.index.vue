@@ -10,7 +10,10 @@ import { formatDate } from '@/composables/useDateFormat';
 import { disabledFutureDate } from '@/composables/useDisabledFutureDate';
 import { useAuthorization } from '@/composables/useAuthorization';
 import { useResponsiveDrawerWidth } from '@/composables/useResponsiveDrawerWidth';
+import { useFlashMessages } from '@/composables/useFlashMessages';
 import axios from 'axios';
+
+useFlashMessages();
 
 const { can } = useAuthorization();
 const participantsDrawerWidth = useResponsiveDrawerWidth(700);
@@ -145,14 +148,28 @@ const openEdit = (record: Training) => {
 };
 
 const handleSubmit = () => {
+    form.transform((data) => ({
+        ...data,
+        project_id: data.project_id || null,
+        duration_hours: data.duration_hours === '' ? null : data.duration_hours,
+    }));
+
+    const options = {
+        onSuccess: () => {
+            showModal.value = false;
+            if (!editing.value) {
+                form.reset();
+            }
+        },
+        onError: () => {
+            message.error('Could not save training. Please check the form for errors.');
+        },
+    };
+
     if (editing.value) {
-        form.put(route('trainings.update', editing.value.id), {
-            onSuccess: () => { showModal.value = false; message.success('Training updated!'); },
-        });
+        form.put(route('trainings.update', editing.value.id), options);
     } else {
-        form.post(route('trainings.store'), {
-            onSuccess: () => { showModal.value = false; form.reset(); message.success('Training created!'); },
-        });
+        form.post(route('trainings.store'), options);
     }
 };
 

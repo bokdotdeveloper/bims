@@ -35,19 +35,11 @@ class TrainingController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'training_title' => 'required|string|max:255',
-            'training_type' => 'nullable|string|max:100',
-            'facilitator' => 'nullable|string|max:255',
-            'venue' => 'nullable|string|max:255',
-            'date_conducted' => 'required|date',
-            'duration_hours' => 'nullable|numeric|min:0',
-            'project_id' => 'nullable|exists:projects,id',
-        ]);
+        Training::create($this->validatedTrainingData($request));
 
-        Training::create($validated);
-
-        return back()->with('success', 'Training created successfully.');
+        return redirect()
+            ->route('trainings.index')
+            ->with('success', 'Training created successfully.');
     }
 
     public function show(string $id)
@@ -61,19 +53,11 @@ class TrainingController extends Controller
     {
         $training = Training::findOrFail($id);
 
-        $validated = $request->validate([
-            'training_title' => 'required|string|max:255',
-            'training_type' => 'nullable|string|max:100',
-            'facilitator' => 'nullable|string|max:255',
-            'venue' => 'nullable|string|max:255',
-            'date_conducted' => 'required|date',
-            'duration_hours' => 'nullable|numeric|min:0',
-            'project_id' => 'nullable|exists:projects,id',
-        ]);
+        $training->update($this->validatedTrainingData($request));
 
-        $training->update($validated);
-
-        return back()->with('success', 'Training updated successfully.');
+        return redirect()
+            ->route('trainings.index')
+            ->with('success', 'Training updated successfully.');
     }
 
     public function destroy(string $id)
@@ -155,5 +139,33 @@ class TrainingController extends Controller
             ->get();
 
         return response()->json($beneficiaries);
+    }
+
+    /** @return array<string, mixed> */
+    private function validatedTrainingData(Request $request): array
+    {
+        if ($request->filled('training_tile') && ! $request->filled('training_title')) {
+            $request->merge(['training_title' => $request->input('training_tile')]);
+        }
+
+        $request->merge([
+            'project_id' => $request->input('project_id') ?: null,
+            'duration_hours' => $request->input('duration_hours') === '' || $request->input('duration_hours') === null
+                ? null
+                : $request->input('duration_hours'),
+            'facilitator' => $request->input('facilitator') ?: null,
+            'venue' => $request->input('venue') ?: null,
+            'training_type' => $request->input('training_type') ?: '',
+        ]);
+
+        return $request->validate([
+            'training_title' => 'required|string|max:200',
+            'training_type' => 'required|string|max:100',
+            'facilitator' => 'nullable|string|max:150',
+            'venue' => 'nullable|string|max:200',
+            'date_conducted' => 'required|date',
+            'duration_hours' => 'nullable|numeric|min:0',
+            'project_id' => 'nullable|exists:projects,id',
+        ]);
     }
 }
